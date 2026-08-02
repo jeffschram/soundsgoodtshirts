@@ -53,12 +53,17 @@ const applicationTables = {
   }).index("by_user", ["userId"])
     .index("by_status", ["status"]),
 
+  // A cart row is owned by exactly one of sessionId (a guest, keyed by the
+  // random id in localStorage) or userId (a signed-in account). Merging on
+  // sign-in swaps one for the other, which is why both are optional.
   cartItems: defineTable({
-    sessionId: v.string(),
+    sessionId: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
     productId: v.id("products"),
     variantId: v.number(),
     quantity: v.number(),
-  }).index("by_session", ["sessionId"]),
+  }).index("by_session", ["sessionId"])
+    .index("by_user", ["userId"]),
 };
 
 export default defineSchema({
