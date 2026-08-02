@@ -59,7 +59,29 @@ export default function OrderDetailsPage() {
                 {new Date(order._creationTime).toLocaleDateString()}
               </span>
             </div>
-            <div className="flex justify-between gap-4">
+            {order.subtotal !== undefined && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="tabular-nums">
+                  ${order.subtotal.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {order.shipping !== undefined && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Shipping</span>
+                <span className="tabular-nums">
+                  ${order.shipping.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {order.tax !== undefined && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="tabular-nums">${order.tax.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between gap-4 border-t pt-2">
               <span className="text-muted-foreground">Total</span>
               <span className="font-medium tabular-nums">
                 ${order.total.toFixed(2)}

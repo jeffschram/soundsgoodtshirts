@@ -19,12 +19,170 @@ async function printfulFetch(path: string, token: string) {
   return response.json();
 }
 
+/**
+ * Shipping fallback, used when Printful can't be reached or has no token.
+ *
+ * PLACEHOLDER — this is a guess, not a real rate. It exists so checkout never
+ * hard-fails on a shipping quote. Every order that falls back to it is an
+ * order where we may be under- or over-charging for shipping, so treat a
+ * persistent fallback as a bug, not a steady state. Replace by confirming the
+ * live Printful rates path below works against a real token.
+ */
+export const FALLBACK_FLAT_SHIPPING_RATE_USD = 4.99;
+
+export interface ShippingRecipient {
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+export interface ShippingQuote {
+  /** Shipping cost in dollars. */
+  amount: number;
+  /** Where the number came from — "printful" is a real rate, "fallback" is the constant. */
+  source: "printful" | "fallback";
+  /** Carrier/service name when we have a real rate. */
+  serviceName?: string;
+  /** Why we fell back, when we did. Surfaced for debugging, not to customers. */
+  fallbackReason?: string;
+}
+
+/**
+ * Ask Printful what shipping actually costs for this recipient and these items.
+ *
+ * Falls back to FALLBACK_FLAT_SHIPPING_RATE_USD on any failure rather than
+ * throwing, so a Printful outage degrades the quote instead of blocking
+ * checkout entirely.
+ *
+ * NOTE: `sync_variant_id` is the right field for variants that came from
+ * `syncProducts` (our `variants[].id` values are Printful sync variant ids,
+ * not catalog variant ids). This has not been exercised against a live token —
+ * if quotes are always coming back as "fallback", check `fallbackReason`
+ * first, since a rejected item shape is the most likely cause.
+ */
+export async function quoteShippingRate(
+  recipient: ShippingRecipient,
+  items: Array<{ variantId: number; quantity: number }>,
+): Promise<ShippingQuote> {
+  const token = process.env.PRINTFUL_API_TOKEN;
+
+  if (!token) {
+    return {
+      amount: FALLBACK_FLAT_SHIPPING_RATE_USD,
+      source: "fallback",
+      fallbackReason: "PRINTFUL_API_TOKEN is not set",
+    };
+  }
+
+  if (items.length === 0) {
+    return { amount: 0, source: "fallback", fallbackReason: "No items" };
+  }
+
+  try {
+    const response = await fetch(`${PRINTFUL_API_URL}/shipping/rates`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: {
+          address1: recipient.address1,
+          address2: recipient.address2 || undefined,
+          city: recipient.city,
+          state_code: recipient.state,
+          country_code: recipient.country,
+          zip: recipient.zip,
+        },
+        items: items.map((item) => ({
+          sync_variant_id: item.variantId,
+          quantity: item.quantity,
+        })),
+        currency: "USD",
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      return {
+        amount: FALLBACK_FLAT_SHIPPING_RATE_USD,
+        source: "fallback",
+        fallbackReason: `Printful ${response.status}: ${body.slice(0, 200)}`,
+      };
+    }
+
+    const payload: { result?: Array<{ id: string; name: string; rate: string }> } =
+      await response.json();
+
+    const rates = (payload.result ?? [])
+      .map((rate) => ({ name: rate.name, amount: parseFloat(rate.rate) }))
+      .filter((rate) => Number.isFinite(rate.amount));
+
+    if (rates.length === 0) {
+      return {
+        amount: FALLBACK_FLAT_SHIPPING_RATE_USD,
+        source: "fallback",
+        fallbackReason: "Printful returned no usable rates",
+      };
+    }
+
+    // Cheapest option. Offering the customer a choice of speeds would mean
+    // persisting which one they picked, which is a bigger change than this.
+    const cheapest = rates.reduce((a, b) => (b.amount < a.amount ? b : a));
+
+    return {
+      amount: cheapest.amount,
+      source: "printful",
+      serviceName: cheapest.name,
+    };
+  } catch (error) {
+    return {
+      amount: FALLBACK_FLAT_SHIPPING_RATE_USD,
+      source: "fallback",
+      fallbackReason: `Shipping request failed: ${String(error).slice(0, 200)}`,
+    };
+  }
+}
+
 function slugify(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+/**
+ * Shipping estimate for the checkout page, so the customer sees a breakdown
+ * before they commit.
+ *
+ * This is DISPLAY ONLY. The amount actually charged is quoted again inside
+ * `stripe.createCheckoutSession` from the persisted order, so a tampered
+ * request here changes what one shopper sees and nothing about what they pay.
+ */
+export const quoteShipping = action({
+  args: {
+    recipient: v.object({
+      address1: v.string(),
+      address2: v.optional(v.string()),
+      city: v.string(),
+      state: v.string(),
+      zip: v.string(),
+      country: v.string(),
+    }),
+    items: v.array(
+      v.object({
+        variantId: v.number(),
+        quantity: v.number(),
+      }),
+    ),
+  },
+  handler: async (_ctx, args): Promise<ShippingQuote> => {
+    return await quoteShippingRate(args.recipient, args.items);
+  },
+});
 
 export const syncProducts = action({
   args: {},
