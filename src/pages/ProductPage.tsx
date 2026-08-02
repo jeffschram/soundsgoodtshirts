@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCart } from "@/context/CartContext";
+import ProductGallery from "@/components/ProductGallery";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,13 +57,11 @@ export default function ProductPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <div className="grid gap-10 md:grid-cols-2">
-        <div className="overflow-hidden rounded-xl border bg-muted">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="aspect-square size-full object-cover"
-          />
-        </div>
+        <ProductGallery
+          key={product._id}
+          images={product.images}
+          productName={product.name}
+        />
 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{product.name}</h1>
