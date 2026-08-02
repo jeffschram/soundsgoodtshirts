@@ -1,7 +1,14 @@
-import { SignInForm } from "../SignInForm";
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { Navigate } from "react-router-dom";
+import { api } from "../../convex/_generated/api";
+import { SignInForm } from "@/SignInForm";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function SignInPage() {
   const user = useQuery(api.auth.loggedInUser);
@@ -12,16 +19,18 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="sign-in-page">
-      <div className="container">
-        <div className="sign-in-container">
-          <h1>Sign In to Your Account</h1>
-          <p className="sign-in-description">
+    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16 sm:px-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Sign In to Your Account</CardTitle>
+          <CardDescription>
             Sign in to view your order history and manage your account.
-          </p>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <SignInForm />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

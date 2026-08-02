@@ -1,7 +1,5 @@
 # Sounds Good T-Shirts
 
-_Consolidated plan + task list. Status verified against the repo and the running app on 2026-08-02._
-
 ## Business Model
 
 Novelty t-shirt business.
@@ -22,8 +20,8 @@ Goal: replace the Squarespace store with a custom Vite/React + Convex + Printful
 
 ## Tech Stack (as built)
 
-| Layer       | Built with                                                        |
-| ----------- | ----------------------------------------------------------------- |
+| Layer       | Built with                                                         |
+| ----------- | ------------------------------------------------------------------ |
 | Frontend    | Vite + React 19 + TypeScript, react-router-dom v7. No Tailwind.    |
 | Styling     | One global `src/index.css` (~1570 lines) of CSS custom properties. |
 | Backend     | Convex — deployment `quiet-porpoise-44`                            |
@@ -32,9 +30,6 @@ Goal: replace the Squarespace store with a custom Vite/React + Convex + Printful
 | Auth        | Convex Auth (`@convex-dev/auth`), Password + Anonymous providers   |
 
 **Two open decisions where the build diverged from the original plan:**
-
-- Plan specified **styled-components**; the app uses a single global stylesheet. Adopt it or drop it from the plan.
-- Plan specified **Clerk**; the app uses Convex Auth. Migrate or update the plan.
 
 ## Status by Area
 
@@ -91,10 +86,16 @@ Goal: replace the Squarespace store with a custom Vite/React + Convex + Printful
 
 ### 6. Decisions to close
 
-- [ ] styled-components: adopt or drop
-- [ ] Clerk vs. Convex Auth: migrate or update the plan
+- [x] we are using ShadCN/UI for components/css
+- [x] we are using Convex Auth
 
 ### 7. Launch
 
 - [ ] Deploy to production
 - [ ] Migrate the domain off Squarespace
+
+### 8. For later version: V2
+
+- [ ] Automated marketing and social media campaigns
+- [ ] Create a pipeline to use an image generator to take the basic tshirt image and ai-generate funny images for the site and for marketing
+- [ ] Create an admin area to automatically generate new shirts using just the text. Should be able to accept "I love spaghetti" and create the shirt on printful and the app automatically.

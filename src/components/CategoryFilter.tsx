@@ -1,30 +1,34 @@
+import { Button } from "@/components/ui/button";
+
 interface CategoryFilterProps {
   categories: string[];
   selectedCategory: string | null;
   onCategoryChange: (category: string | null) => void;
 }
 
-export default function CategoryFilter({ 
-  categories, 
-  selectedCategory, 
-  onCategoryChange 
+export default function CategoryFilter({
+  categories,
+  selectedCategory,
+  onCategoryChange,
 }: CategoryFilterProps) {
   return (
-    <div className="category-filter">
-      <button
-        className={`filter-button ${selectedCategory === null ? 'active' : ''}`}
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        size="sm"
+        variant={selectedCategory === null ? "default" : "outline"}
         onClick={() => onCategoryChange(null)}
       >
         All
-      </button>
+      </Button>
       {categories.map((category) => (
-        <button
+        <Button
           key={category}
-          className={`filter-button ${selectedCategory === category ? 'active' : ''}`}
+          size="sm"
+          variant={selectedCategory === category ? "default" : "outline"}
           onClick={() => onCategoryChange(category)}
         >
           {category.charAt(0).toUpperCase() + category.slice(1)}
-        </button>
+        </Button>
       ))}
     </div>
   );

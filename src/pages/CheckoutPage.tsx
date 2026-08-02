@@ -1,8 +1,20 @@
 import { useState } from "react";
-import { useCart } from "../context/CartContext";
 import { useMutation, useAction, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
-import { SignInForm } from "../SignInForm";
+import { useCart } from "@/context/CartContext";
+import { SignInForm } from "@/SignInForm";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -27,8 +39,10 @@ export default function CheckoutPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const orderItems = cartItems.map(item => {
-      const variant = item.product?.variants.find((v: any) => v.id === item.variantId);
+    const orderItems = cartItems.map((item) => {
+      const variant = item.product?.variants.find(
+        (v: any) => v.id === item.variantId,
+      );
       return {
         productId: item.productId,
         variantId: item.variantId,
@@ -60,15 +74,15 @@ export default function CheckoutPage() {
         clearCart();
         window.location.href = url;
       } else {
-        alert("Could not create payment session. Please try again.");
+        toast.error("Could not create payment session. Please try again.");
         setSubmitting(false);
       }
     } catch (error: any) {
       console.error("Checkout error:", error);
       if (error.message?.includes("STRIPE_SECRET_KEY")) {
-        alert("Stripe is not configured yet. Payment processing is unavailable.");
+        toast.error("Stripe is not configured yet. Payment is unavailable.");
       } else {
-        alert("Error during checkout. Please try again.");
+        toast.error("Error during checkout. Please try again.");
       }
       setSubmitting(false);
     }
@@ -82,135 +96,192 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="checkout-page">
-      <div className="container">
-        <h1>Checkout</h1>
+    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <h1 className="text-3xl font-bold tracking-tight">Checkout</h1>
 
-        <div className="checkout-layout">
-          <div className="checkout-form">
-            {!user && (
-              <div className="account-section">
-                <h2>Account (Optional)</h2>
-                <p className="account-description">
-                  Create an account to track your orders and save your information for future purchases.
-                </p>
-
+      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-8">
+          {!user && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Account (Optional)</CardTitle>
+                <CardDescription>
+                  Create an account to track your orders and save your
+                  information for future purchases.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                 {!showAccountCreation ? (
-                  <div className="account-options">
-                    <button
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Button
                       type="button"
-                      className="create-account-button"
+                      variant="outline"
                       onClick={() => setShowAccountCreation(true)}
                     >
                       Create Account
-                    </button>
-                    <p className="guest-checkout">Or continue as guest</p>
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Or continue as guest
+                    </span>
                   </div>
                 ) : (
-                  <div className="account-creation">
+                  <div className="space-y-4">
                     <SignInForm />
-                    <button
+                    <Button
                       type="button"
-                      className="cancel-account-button"
+                      variant="ghost"
+                      className="w-full"
                       onClick={() => setShowAccountCreation(false)}
                     >
                       Continue as Guest
-                    </button>
+                    </Button>
                   </div>
                 )}
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          )}
 
-            <form onSubmit={handleSubmit}>
-              <div className="form-section">
-                <h2>Contact Information</h2>
-                <input
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
                   type="email"
                   name="email"
-                  placeholder="Email"
                   value={formData.email}
                   onChange={handleInputChange}
                   required
                   disabled={!!user?.email}
                 />
-              </div>
+              </CardContent>
+            </Card>
 
-              <div className="form-section">
-                <h2>Shipping Address</h2>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Full Name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                />
-                <input
-                  type="text"
-                  name="address1"
-                  placeholder="Address"
-                  value={formData.address1}
-                  onChange={handleInputChange}
-                  required
-                />
-                <input
-                  type="text"
-                  name="address2"
-                  placeholder="Apartment, suite, etc. (optional)"
-                  value={formData.address2}
-                  onChange={handleInputChange}
-                />
-                <div className="form-row">
-                  <input
+            <Card>
+              <CardHeader>
+                <CardTitle>Shipping Address</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
                     type="text"
-                    name="city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="state"
-                    placeholder="State"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <input
-                    type="text"
-                    name="zip"
-                    placeholder="ZIP Code"
-                    value={formData.zip}
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address1">Address</Label>
+                  <Input
+                    id="address1"
+                    type="text"
+                    name="address1"
+                    value={formData.address1}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address2">
+                    Apartment, suite, etc. (optional)
+                  </Label>
+                  <Input
+                    id="address2"
+                    type="text"
+                    name="address2"
+                    value={formData.address2}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      id="state"
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zip">ZIP Code</Label>
+                    <Input
+                      id="zip"
+                      type="text"
+                      name="zip"
+                      value={formData.zip}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <button type="submit" className="place-order-button" disabled={submitting}>
-                {submitting ? "Processing..." : `Pay $${cartTotal.total.toFixed(2)}`}
-              </button>
-            </form>
-          </div>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={submitting}
+            >
+              {submitting
+                ? "Processing..."
+                : `Pay $${cartTotal.total.toFixed(2)}`}
+            </Button>
+          </form>
+        </div>
 
-          <div className="order-summary">
-            <h2>Order Summary</h2>
+        <Card className="h-fit lg:sticky lg:top-24">
+          <CardHeader>
+            <CardTitle>Order Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {cartItems.map((item) => {
-              const variant = item.product?.variants.find((v: any) => v.id === item.variantId);
+              const variant = item.product?.variants.find(
+                (v: any) => v.id === item.variantId,
+              );
               return (
-                <div key={item._id} className="summary-item">
-                  <span>{item.product?.name} ({variant?.size} - {variant?.color})</span>
-                  <span>x{item.quantity}</span>
-                  <span>${((variant?.price || 0) * item.quantity).toFixed(2)}</span>
+                <div key={item._id} className="flex justify-between gap-4 text-sm">
+                  <span className="min-w-0">
+                    {item.product?.name}
+                    <span className="block text-muted-foreground">
+                      {variant?.size} - {variant?.color} &times; {item.quantity}
+                    </span>
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    ${((variant?.price || 0) * item.quantity).toFixed(2)}
+                  </span>
                 </div>
               );
             })}
-            <div className="summary-total">
-              <strong>Total: ${cartTotal.total.toFixed(2)}</strong>
+
+            <Separator />
+
+            <div className="flex justify-between font-semibold tabular-nums">
+              <span>Total</span>
+              <span>${cartTotal.total.toFixed(2)}</span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

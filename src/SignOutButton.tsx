@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
+import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
   const { isAuthenticated } = useConvexAuth();
@@ -10,8 +11,8 @@ export function SignOutButton() {
   }
 
   return (
-    <button className="auth-sign-out-button" onClick={() => void signOut()}>
+    <Button variant="outline" size="sm" onClick={() => void signOut()}>
       Sign out
-    </button>
+    </Button>
   );
 }

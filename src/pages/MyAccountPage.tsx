@@ -1,7 +1,16 @@
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { SignOutButton } from "../SignOutButton";
 import { Navigate, Link } from "react-router-dom";
+import { api } from "../../convex/_generated/api";
+import { SignOutButton } from "@/SignOutButton";
+import { OrderStatusBadge } from "@/components/OrderStatusBadge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function MyAccountPage() {
   const user = useQuery(api.auth.loggedInUser);
@@ -13,58 +22,84 @@ export default function MyAccountPage() {
   }
 
   if (user === undefined) {
-    return <div className="loading">Loading...</div>;
+    return (
+      <div className="mx-auto max-w-4xl space-y-4 px-4 py-12 sm:px-6">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
   }
 
   return (
-    <div className="my-account-page">
-      <div className="container">
-        <div className="account-header">
-          <h1>My Account</h1>
-          <SignOutButton />
-        </div>
-
-        <div className="account-content">
-          <div className="account-info">
-            <h2>Account Information</h2>
-            <div className="info-card">
-              <p><strong>Name:</strong> {user.name || "Not provided"}</p>
-              <p><strong>Email:</strong> {user.email || "Not provided"}</p>
-            </div>
-          </div>
-
-          <div className="order-history">
-            <h2>Order History</h2>
-            {userOrders && userOrders.length > 0 ? (
-              <div className="orders-list">
-                {userOrders.map((order) => (
-                  <div key={order._id} className="order-card">
-                    <div className="order-header">
-                      <h3>Order #{order._id.slice(-8)}</h3>
-                      <span className={`order-status ${order.status}`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </span>
-                    </div>
-                    <div className="order-details">
-                      <p><strong>Date:</strong> {new Date(order._creationTime).toLocaleDateString()}</p>
-                      <p><strong>Total:</strong> ${order.total.toFixed(2)}</p>
-                      <p><strong>Items:</strong> {order.items.length} item(s)</p>
-                    </div>
-                    <Link to={`/order/${order._id}`} className="view-order-button">
-                      View Details
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="no-orders">
-                <p>You haven't placed any orders yet.</p>
-                <Link to="/shop" className="shop-button">Start Shopping</Link>
-              </div>
-            )}
-          </div>
-        </div>
+    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">My Account</h1>
+        <SignOutButton />
       </div>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Account Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <p>
+            <span className="font-medium">Name:</span>{" "}
+            <span className="text-muted-foreground">
+              {user.name || "Not provided"}
+            </span>
+          </p>
+          <p>
+            <span className="font-medium">Email:</span>{" "}
+            <span className="text-muted-foreground">
+              {user.email || "Not provided"}
+            </span>
+          </p>
+        </CardContent>
+      </Card>
+
+      <h2 className="mt-12 text-xl font-semibold tracking-tight">
+        Order History
+      </h2>
+
+      {userOrders === undefined ? (
+        <Skeleton className="mt-4 h-32 w-full" />
+      ) : userOrders.length > 0 ? (
+        <div className="mt-4 space-y-4">
+          {userOrders.map((order) => (
+            <Card key={order._id}>
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-medium">
+                      Order #{order._id.slice(-8)}
+                    </h3>
+                    <OrderStatusBadge status={order.status} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(order._creationTime).toLocaleDateString()} &middot;{" "}
+                    {order.items.length} item(s) &middot;{" "}
+                    <span className="tabular-nums">
+                      ${order.total.toFixed(2)}
+                    </span>
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/order/${order._id}`}>View Details</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col items-center gap-4 rounded-xl border border-dashed py-16">
+          <p className="text-muted-foreground">
+            You haven't placed any orders yet.
+          </p>
+          <Button asChild>
+            <Link to="/shop">Start Shopping</Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
