@@ -1,7 +1,18 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+const MAX_QUANTITY_PER_LINE = 25;
+
+/**
+ * Create an order.
+ *
+ * Prices and the total are NOT accepted from the client — they are recomputed
+ * here from the products table. This mutation is public by necessity (guest
+ * checkout), so a client-supplied price would let anyone mint a $0.01 order,
+ * and convex/stripe.ts bills straight from these stored values.
+ */
 export const create = mutation({
   args: {
     email: v.string(),
@@ -9,9 +20,7 @@ export const create = mutation({
       productId: v.id("products"),
       variantId: v.number(),
       quantity: v.number(),
-      price: v.number(),
     })),
-    total: v.number(),
     shippingAddress: v.object({
       name: v.string(),
       address1: v.string(),
@@ -23,20 +32,111 @@ export const create = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    if (args.items.length === 0) {
+      throw new Error("Cannot create an order with no items.");
+    }
+
     const userId = await getAuthUserId(ctx);
 
+    const items: Array<{
+      productId: Id<"products">;
+      variantId: number;
+      quantity: number;
+      price: number;
+    }> = [];
+    let total = 0;
+
+    for (const item of args.items) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+        throw new Error("Quantity must be a positive whole number.");
+      }
+      if (item.quantity > MAX_QUANTITY_PER_LINE) {
+        throw new Error(`Quantity per item is limited to ${MAX_QUANTITY_PER_LINE}.`);
+      }
+
+      const product = await ctx.db.get(item.productId);
+      if (!product || !product.active) {
+        throw new Error("A product in your cart is no longer available.");
+      }
+
+      const variant = product.variants.find((v) => v.id === item.variantId);
+      if (!variant) {
+        throw new Error(`Unknown variant for ${product.name}.`);
+      }
+      if (!variant.available) {
+        throw new Error(
+          `${product.name} (${variant.size} / ${variant.color}) is out of stock.`
+        );
+      }
+
+      const price = variant.price > 0 ? variant.price : product.price;
+      if (!(price > 0)) {
+        throw new Error(`${product.name} is not priced and cannot be ordered.`);
+      }
+
+      items.push({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        price,
+      });
+      total += price * item.quantity;
+    }
+
     return await ctx.db.insert("orders", {
-      ...args,
+      email: args.email,
+      shippingAddress: args.shippingAddress,
+      items,
+      // Rounded to cents so the stored total matches what Stripe is charged.
+      total: Math.round(total * 100) / 100,
       userId: userId || undefined,
       status: "pending",
+      accessToken: crypto.randomUUID(),
     });
   },
 });
 
+/**
+ * Can the caller read this order?
+ *
+ * The owning user, an admin, or anyone holding the order's access token — which
+ * is how a guest sees their order after the Stripe redirect. Returning null
+ * rather than throwing avoids confirming that an order id exists.
+ */
+async function canReadOrder(
+  ctx: any,
+  order: { userId?: Id<"users">; accessToken?: string },
+  token?: string
+): Promise<boolean> {
+  if (token && order.accessToken && token === order.accessToken) {
+    return true;
+  }
+
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
+    return false;
+  }
+  if (order.userId && order.userId === userId) {
+    return true;
+  }
+
+  const user = await ctx.db.get(userId);
+  return user?.isAdmin === true;
+}
+
 export const get = query({
-  args: { id: v.id("orders") },
+  args: { id: v.id("orders"), token: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const order = await ctx.db.get(args.id);
+    if (!order) {
+      return null;
+    }
+    if (!(await canReadOrder(ctx, order, args.token))) {
+      return null;
+    }
+    // Never hand the token back to the client that is reading the order.
+    const { accessToken, ...safe } = order;
+    return safe;
   },
 });
 
@@ -57,10 +157,15 @@ export const listByUser = query({
 });
 
 export const getOrderItems = query({
-  args: { orderId: v.id("orders") },
+  args: { orderId: v.id("orders"), token: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
+      return null;
+    }
+    // Same rule as `get` — this returns line items and product detail for the
+    // order and was previously readable by anyone with an id.
+    if (!(await canReadOrder(ctx, order, args.token))) {
       return null;
     }
 
@@ -78,15 +183,12 @@ export const getOrderItems = query({
   },
 });
 
-export const updateStatus = mutation({
-  args: {
-    id: v.id("orders"),
-    status: v.string(),
-    printfulOrderId: v.optional(v.number()),
-    stripePaymentIntentId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, updates);
-  },
-});
+/**
+ * NOTE: `updateStatus` was removed here.
+ *
+ * It was a public, unauthenticated mutation accepting status,
+ * printfulOrderId and stripePaymentIntentId — anyone could mark an order
+ * shipped or attach a fake payment intent. Admins use the requireAdmin-guarded
+ * admin.updateOrderStatus; the Stripe and Printful webhooks use internal
+ * mutations in convex/stripe.ts and convex/printful.ts.
+ */

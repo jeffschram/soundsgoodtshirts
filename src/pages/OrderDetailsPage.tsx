@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "../../convex/_generated/api";
@@ -14,11 +14,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
+  // Guests arrive from the Stripe redirect carrying an access token; signed-in
+  // owners and admins are authorised without one.
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? undefined;
+
   const order = useQuery(api.orders.get, {
     id: id as Id<"orders">,
+    token,
   });
   const orderItems = useQuery(api.orders.getOrderItems, {
     orderId: id as Id<"orders">,
+    token,
   });
 
   if (!order) {
@@ -69,6 +76,36 @@ export default function OrderDetailsPage() {
               <span className="text-muted-foreground">Status</span>
               <OrderStatusBadge status={order.status} />
             </div>
+            {order.shipment?.trackingNumber && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">
+                  Tracking
+                  {order.shipment.carrier ? ` (${order.shipment.carrier})` : ""}
+                </span>
+                {order.shipment.trackingUrl ? (
+                  <a
+                    href={order.shipment.trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-xs underline underline-offset-4"
+                  >
+                    {order.shipment.trackingNumber}
+                  </a>
+                ) : (
+                  <span className="font-mono text-xs">
+                    {order.shipment.trackingNumber}
+                  </span>
+                )}
+              </div>
+            )}
+            {order.shipment?.shippedAt && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Shipped</span>
+                <span>
+                  {new Date(order.shipment.shippedAt).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

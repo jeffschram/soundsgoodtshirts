@@ -39,23 +39,18 @@ export default function CheckoutPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const orderItems = cartItems.map((item) => {
-      const variant = item.product?.variants.find(
-        (v: any) => v.id === item.variantId,
-      );
-      return {
-        productId: item.productId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        price: variant?.price || 0,
-      };
-    });
+    // Prices and the total are deliberately not sent — orders.create recomputes
+    // them server-side from the products table.
+    const orderItems = cartItems.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+    }));
 
     try {
       const orderId = await createOrder({
         email: formData.email,
         items: orderItems,
-        total: cartTotal.total,
         shippingAddress: {
           name: formData.name,
           address1: formData.address1,

@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, ReactNode } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -26,17 +26,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateQuantityMutation = useMutation(api.cart.updateQuantity);
   const removeItemMutation = useMutation(api.cart.removeItem);
   const clearCartMutation = useMutation(api.cart.clearCart);
+  const mergeGuestCartMutation = useMutation(api.cart.mergeGuestCart);
+
+  // Move the guest cart onto the account exactly once per sign-in. Keyed on the
+  // user id so re-renders and token refreshes cannot re-trigger it, and so
+  // signing in as a different user still merges.
+  const loggedInUser = useQuery(api.auth.loggedInUser);
+  const mergedForUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!loggedInUser || loggedInUser.isAnonymous) return;
+    if (mergedForUserRef.current === loggedInUser._id) return;
+
+    mergedForUserRef.current = loggedInUser._id;
+    void mergeGuestCartMutation({ sessionId });
+  }, [loggedInUser, mergeGuestCartMutation, sessionId]);
 
   const addToCart = (productId: Id<"products">, variantId: number, quantity: number) => {
     addToCartMutation({ sessionId, productId, variantId, quantity });
   };
 
   const updateQuantity = (itemId: Id<"cartItems">, quantity: number) => {
-    updateQuantityMutation({ itemId, quantity });
+    updateQuantityMutation({ itemId, sessionId, quantity });
   };
 
   const removeFromCart = (itemId: Id<"cartItems">) => {
-    removeItemMutation({ itemId });
+    removeItemMutation({ itemId, sessionId });
   };
 
   const clearCart = () => {
