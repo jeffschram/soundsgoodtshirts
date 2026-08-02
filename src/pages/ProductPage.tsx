@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { ChevronDown } from "lucide-react";
@@ -17,6 +17,13 @@ export default function ProductPage() {
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showGarmentInfo, setShowGarmentInfo] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
+
+  // The route stays mounted when navigating between products, so a stale index
+  // would show the previous product's image or overrun a shorter array.
+  useEffect(() => {
+    setImageIndex(0);
+  }, [slug]);
 
   const product = useQuery(api.products.getBySlug, {
     slug: slug || "",
@@ -55,15 +62,55 @@ export default function ProductPage() {
     (v) => v.id === selectedVariant,
   );
 
+  const images = product.images ?? [];
+  // Clamp rather than trust state: the effect that resets the index runs after
+  // render, so a shorter image array would briefly index out of bounds.
+  const activeImage = Math.min(imageIndex, Math.max(0, images.length - 1));
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <div className="grid gap-10 md:grid-cols-2">
-        <div className="overflow-hidden rounded-xl border bg-muted">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="aspect-square size-full object-cover"
-          />
+        <div className="space-y-3">
+          <div className="overflow-hidden rounded-xl border bg-muted">
+            {images.length > 0 ? (
+              <img
+                src={images[activeImage]}
+                alt={
+                  images.length > 1
+                    ? `${product.name} (image ${activeImage + 1} of ${images.length})`
+                    : product.name
+                }
+                className="aspect-square size-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-square size-full items-center justify-center text-sm text-muted-foreground">
+                No image available
+              </div>
+            )}
+          </div>
+
+          {images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  onClick={() => setImageIndex(index)}
+                  aria-label={`Show image ${index + 1} of ${images.length}`}
+                  aria-current={index === activeImage}
+                  className={cn(
+                    "size-16 shrink-0 overflow-hidden rounded-md border transition",
+                    "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+                    index === activeImage
+                      ? "ring-2 ring-ring"
+                      : "opacity-70 hover:opacity-100"
+                  )}
+                >
+                  <img src={image} alt="" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

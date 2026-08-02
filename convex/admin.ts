@@ -1,4 +1,10 @@
-import { query, mutation, action, internalQuery } from "./_generated/server";
+import {
+  query,
+  mutation,
+  action,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
@@ -157,6 +163,44 @@ export const setUserAdmin = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     return await ctx.db.patch(args.userId, { isAdmin: args.isAdmin });
+  },
+});
+
+/**
+ * Grant admin to the first user on a fresh deployment.
+ *
+ * `setUserAdmin` requires an existing admin, so a new deployment has no way in.
+ * This is an internalMutation: unreachable from any client, runnable only from
+ * the Convex dashboard's function runner or `npx convex run`, both of which
+ * already require deployment credentials.
+ *
+ * Deliberately NOT an ADMIN_EMAILS env allowlist granting admin on sign-up.
+ * This app's Password provider does no email verification, so an allowlist
+ * would be forgeable — anyone could register with a listed address and be
+ * handed admin. Revoke through /admin/users, which is properly guarded.
+ *
+ *   npx convex run admin:bootstrapAdmin '{"email":"you@example.com"}'
+ */
+export const bootstrapAdmin = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+
+    const users = await ctx.db.query("users").collect();
+    const user = users.find((candidate) => candidate.email?.toLowerCase() === email);
+
+    if (!user) {
+      throw new Error(
+        `No user with email ${email}. Sign up through the app first, then re-run this.`
+      );
+    }
+
+    if (user.isAdmin) {
+      return { userId: user._id, email, alreadyAdmin: true };
+    }
+
+    await ctx.db.patch(user._id, { isAdmin: true });
+    return { userId: user._id, email, alreadyAdmin: false };
   },
 });
 

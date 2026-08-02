@@ -89,10 +89,14 @@ const applicationTables = {
 
   cartItems: defineTable({
     sessionId: v.string(),
+    // Set once a guest cart is merged into an account, after which the cart
+    // follows the user across devices instead of the localStorage session.
+    userId: v.optional(v.id("users")),
     productId: v.id("products"),
     variantId: v.number(),
     quantity: v.number(),
-  }).index("by_session", ["sessionId"]),
+  }).index("by_session", ["sessionId"])
+    .index("by_user", ["userId"]),
 };
 
 export default defineSchema({

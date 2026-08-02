@@ -17,6 +17,43 @@ The backend code is in the `convex` directory.
 
 Chef apps use [Convex Auth](https://auth.convex.dev/) with Anonymous auth for easy sign in. You may wish to change this before deploying your app.
 
+## Creating the first admin
+
+`/admin` is gated on a user's `isAdmin` flag, and `admin.setUserAdmin` requires
+an existing admin — so a fresh deployment has no way in. Bootstrap it:
+
+1. Sign up through the app at `/sign-in` with the email you want to be admin.
+2. Run, against that deployment:
+
+   ```
+   npx convex run admin:bootstrapAdmin '{"email":"you@example.com"}'
+   ```
+
+3. Reload `/admin`.
+
+`bootstrapAdmin` is an `internalMutation`, so it is unreachable from any client
+and only runs with deployment credentials. Once one admin exists, promote
+others through `/admin/users`.
+
+This must be repeated on the production deployment — the `users` table starts
+empty there, and environment variables do not carry across deployments.
+
+## Environment variables
+
+Set in the Convex dashboard for each deployment:
+
+| Variable | Purpose |
+| --- | --- |
+| `PRINTFUL_API_TOKEN` | Product sync and order submission |
+| `PRINTFUL_WEBHOOK_SECRET` | Shared secret in the Printful webhook URL |
+| `PRINTFUL_CONFIRM_ORDERS` | `"true"` submits real orders; anything else creates drafts |
+| `STRIPE_SECRET_KEY` | Checkout session creation |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
+| `SITE_URL` | Post-checkout redirect base, no trailing slash |
+
+Register `<site>/printful-webhook?secret=<PRINTFUL_WEBHOOK_SECRET>` in the
+Printful dashboard, and `<site>/stripe-webhook` in Stripe.
+
 ## Developing and deploying your app
 
 Check out the [Convex docs](https://docs.convex.dev/) for more information on how to develop with Convex.
