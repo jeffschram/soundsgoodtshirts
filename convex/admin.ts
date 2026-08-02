@@ -28,7 +28,8 @@ export const createProduct = mutation({
   args: {
     slug: v.string(),
     name: v.string(),
-    description: v.string(),
+    description: v.optional(v.string()),
+    garmentDescription: v.optional(v.string()),
     price: v.number(),
     images: v.array(v.string()),
     categories: v.array(v.string()),
@@ -56,6 +57,7 @@ export const updateProduct = mutation({
     slug: v.optional(v.string()),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    garmentDescription: v.optional(v.string()),
     price: v.optional(v.number()),
     images: v.optional(v.array(v.string())),
     categories: v.optional(v.array(v.string())),

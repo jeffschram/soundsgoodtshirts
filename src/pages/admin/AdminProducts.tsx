@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -98,6 +98,7 @@ export default function AdminProducts() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Slug</TableHead>
+              <TableHead className="min-w-64">Custom description</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Active</TableHead>
@@ -110,6 +111,15 @@ export default function AdminProducts() {
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {product.slug}
+                </TableCell>
+                <TableCell>
+                  <DescriptionCell
+                    productName={product.name}
+                    value={product.description ?? ""}
+                    onSave={(description) =>
+                      updateProduct({ id: product._id, description })
+                    }
+                  />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   ${product.price.toFixed(2)}
@@ -158,6 +168,59 @@ export default function AdminProducts() {
         </Table>
       </div>
     </div>
+  );
+}
+
+/**
+ * Inline editor for the hand-written product copy.
+ *
+ * Saves on blur. This is a focused stopgap so copywriting is not blocked on
+ * the full product edit form, which is tracked separately.
+ */
+function DescriptionCell({
+  productName,
+  value,
+  onSave,
+}: {
+  productName: string;
+  value: string;
+  onSave: (description: string) => Promise<unknown>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  // Re-sync if the row changes underneath us (e.g. after a Printful sync).
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const commit = async () => {
+    if (draft === value) return;
+    setSaving(true);
+    try {
+      await onSave(draft);
+      toast.success(`Saved copy for ${productName}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not save description."
+      );
+      setDraft(value);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Textarea
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => void commit()}
+      disabled={saving}
+      rows={2}
+      placeholder="Add the funny copy…"
+      aria-label={`Custom description for ${productName}`}
+      className="min-w-64 text-sm"
+    />
   );
 }
 
@@ -268,7 +331,7 @@ function CreateProductForm({
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="product-description">Description</Label>
+              <Label htmlFor="product-description">Custom description</Label>
               <Textarea
                 id="product-description"
                 value={form.description}

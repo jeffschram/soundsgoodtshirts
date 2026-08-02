@@ -7,7 +7,13 @@ const applicationTables = {
     printfulId: v.optional(v.number()),
     slug: v.string(),
     name: v.string(),
-    description: v.string(),
+    // The copy the storefront leads with: hand-written in /admin/products.
+    // The Printful sync never writes this field.
+    description: v.optional(v.string()),
+    // Printful's catalog blurb about the garment itself (fabric, fit, care),
+    // shown behind the "About the shirt" toggle. Sync-owned; overwritten on
+    // every run.
+    garmentDescription: v.optional(v.string()),
     price: v.number(),
     images: v.array(v.string()),
     categories: v.array(v.string()),

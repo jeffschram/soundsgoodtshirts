@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
+import { ChevronDown } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [showGarmentInfo, setShowGarmentInfo] = useState(false);
 
   const product = useQuery(api.products.getBySlug, {
     slug: slug || "",
@@ -69,7 +71,48 @@ export default function ProductPage() {
           <p className="mt-2 text-2xl font-semibold tabular-nums">
             ${(selectedVariantData?.price ?? product.price).toFixed(2)}
           </p>
-          <p className="mt-4 text-muted-foreground">{product.description}</p>
+          {product.description ? (
+            <>
+              <p className="mt-4 text-muted-foreground">
+                {product.description}
+              </p>
+              {product.garmentDescription && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowGarmentInfo(!showGarmentInfo)}
+                    aria-expanded={showGarmentInfo}
+                    aria-controls="about-the-shirt"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    About the shirt
+                    <ChevronDown
+                      className={cn(
+                        "size-4 transition-transform",
+                        showGarmentInfo && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {showGarmentInfo && (
+                    <p
+                      id="about-the-shirt"
+                      className="mt-2 text-sm text-muted-foreground"
+                    >
+                      {product.garmentDescription}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            // No custom copy yet — show the garment info inline rather than
+            // leaving the product looking blank.
+            product.garmentDescription && (
+              <p className="mt-4 text-muted-foreground">
+                {product.garmentDescription}
+              </p>
+            )
+          )}
 
           <Separator className="my-6" />
 

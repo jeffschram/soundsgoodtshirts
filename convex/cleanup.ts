@@ -55,6 +55,32 @@ export const clearSyncedTaxonomy = internalMutation({
   },
 });
 
+/**
+ * Clear `description` on Printful-managed products.
+ *
+ * Before the copy split, the sync wrote Printful's garment blurb into
+ * `description`. That text now belongs in `garmentDescription`, and leaving it
+ * in `description` would make boilerplate masquerade as hand-written copy.
+ * Run once, then re-sync to populate `garmentDescription`.
+ */
+export const clearSyncedDescriptions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+
+    let cleared = 0;
+    for (const product of products) {
+      if (product.printfulId === undefined) continue;
+      if (!product.description) continue;
+
+      await ctx.db.patch(product._id, { description: undefined });
+      cleared++;
+    }
+
+    return { cleared };
+  },
+});
+
 export const deleteDemoProducts = internalMutation({
   args: {},
   handler: async (ctx) => {

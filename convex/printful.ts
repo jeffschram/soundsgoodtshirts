@@ -115,11 +115,13 @@ export const syncProducts = internalAction({
         ? await getCatalogProduct(catalogProductId)
         : null;
 
-      const description: string =
+      // Garment copy only. The hand-written `description` is never touched by
+      // the sync — it is not even accepted as an upsertProduct argument.
+      const garmentDescription: string =
         typeof catalogProduct?.description === "string" &&
         catalogProduct.description.trim().length > 0
           ? catalogProduct.description.trim()
-          : sync_product.name;
+          : "";
 
       // `type` is the garment category ("T-SHIRT"); `type_name` is the specific
       // model ("Bella + Canvas 3001 | Unisex Jersey Short Sleeve Tee"), which
@@ -144,7 +146,7 @@ export const syncProducts = internalAction({
         printfulId: sync_product.id,
         slug: slugify(sync_product.name),
         name: sync_product.name,
-        description,
+        garmentDescription,
         price: basePrice,
         images: images.length > 0 ? images : ["/placeholder.png"],
         categories,
@@ -170,7 +172,9 @@ export const upsertProduct = internalMutation({
     printfulId: v.number(),
     slug: v.string(),
     name: v.string(),
-    description: v.string(),
+    // `description` is deliberately absent: the hand-written copy must be
+    // unreachable from the sync, so a re-sync provably cannot clobber it.
+    garmentDescription: v.string(),
     price: v.number(),
     images: v.array(v.string()),
     categories: v.array(v.string()),
