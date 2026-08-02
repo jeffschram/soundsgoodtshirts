@@ -72,67 +72,12 @@ export const getByPrintfulId = query({
   },
 });
 
-export const create = mutation({
-  args: {
-    printfulId: v.optional(v.number()),
-    slug: v.string(),
-    name: v.string(),
-    description: v.optional(v.string()),
-    garmentDescription: v.optional(v.string()),
-    price: v.number(),
-    images: v.array(v.string()),
-    categories: v.array(v.string()),
-    tags: v.optional(v.array(v.string())),
-    featured: v.boolean(),
-    variants: v.array(v.object({
-      id: v.number(),
-      name: v.string(),
-      size: v.string(),
-      color: v.string(),
-      price: v.number(),
-      available: v.boolean(),
-    })),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("products", {
-      ...args,
-      active: true,
-    });
-  },
-});
-
-export const update = mutation({
-  args: {
-    id: v.id("products"),
-    printfulId: v.optional(v.number()),
-    slug: v.optional(v.string()),
-    name: v.optional(v.string()),
-    description: v.optional(v.string()),
-    garmentDescription: v.optional(v.string()),
-    price: v.optional(v.number()),
-    images: v.optional(v.array(v.string())),
-    categories: v.optional(v.array(v.string())),
-    tags: v.optional(v.array(v.string())),
-    featured: v.optional(v.boolean()),
-    variants: v.optional(v.array(v.object({
-      id: v.number(),
-      name: v.string(),
-      size: v.string(),
-      color: v.string(),
-      price: v.number(),
-      available: v.boolean(),
-    }))),
-    active: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, updates);
-  },
-});
-
-export const remove = mutation({
-  args: { id: v.id("products") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { active: false });
-  },
-});
+/**
+ * NOTE: `create`, `update`, and `remove` were removed here.
+ *
+ * They were public, unauthenticated mutations accepting price, slug, active
+ * and variants — callable by anyone with the deployment URL, which ships in
+ * the client bundle. The admin UI already uses the requireAdmin-guarded
+ * equivalents in convex/admin.ts (createProduct / updateProduct /
+ * deleteProduct), and nothing in src/ referenced these. Use admin.* instead.
+ */

@@ -91,14 +91,52 @@ export const create = mutation({
       total: Math.round(total * 100) / 100,
       userId: userId || undefined,
       status: "pending",
+      accessToken: crypto.randomUUID(),
     });
   },
 });
 
+/**
+ * Can the caller read this order?
+ *
+ * The owning user, an admin, or anyone holding the order's access token — which
+ * is how a guest sees their order after the Stripe redirect. Returning null
+ * rather than throwing avoids confirming that an order id exists.
+ */
+async function canReadOrder(
+  ctx: any,
+  order: { userId?: Id<"users">; accessToken?: string },
+  token?: string
+): Promise<boolean> {
+  if (token && order.accessToken && token === order.accessToken) {
+    return true;
+  }
+
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
+    return false;
+  }
+  if (order.userId && order.userId === userId) {
+    return true;
+  }
+
+  const user = await ctx.db.get(userId);
+  return user?.isAdmin === true;
+}
+
 export const get = query({
-  args: { id: v.id("orders") },
+  args: { id: v.id("orders"), token: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const order = await ctx.db.get(args.id);
+    if (!order) {
+      return null;
+    }
+    if (!(await canReadOrder(ctx, order, args.token))) {
+      return null;
+    }
+    // Never hand the token back to the client that is reading the order.
+    const { accessToken, ...safe } = order;
+    return safe;
   },
 });
 
@@ -119,10 +157,15 @@ export const listByUser = query({
 });
 
 export const getOrderItems = query({
-  args: { orderId: v.id("orders") },
+  args: { orderId: v.id("orders"), token: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
+      return null;
+    }
+    // Same rule as `get` — this returns line items and product detail for the
+    // order and was previously readable by anyone with an id.
+    if (!(await canReadOrder(ctx, order, args.token))) {
       return null;
     }
 
@@ -140,15 +183,12 @@ export const getOrderItems = query({
   },
 });
 
-export const updateStatus = mutation({
-  args: {
-    id: v.id("orders"),
-    status: v.string(),
-    printfulOrderId: v.optional(v.number()),
-    stripePaymentIntentId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, updates);
-  },
-});
+/**
+ * NOTE: `updateStatus` was removed here.
+ *
+ * It was a public, unauthenticated mutation accepting status,
+ * printfulOrderId and stripePaymentIntentId — anyone could mark an order
+ * shipped or attach a fake payment intent. Admins use the requireAdmin-guarded
+ * admin.updateOrderStatus; the Stripe and Printful webhooks use internal
+ * mutations in convex/stripe.ts and convex/printful.ts.
+ */

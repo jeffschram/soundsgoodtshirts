@@ -109,3 +109,25 @@ export const deleteDemoProducts = internalMutation({
     return { deleted, removedCartItems };
   },
 });
+
+/**
+ * Delete orders placed against test email addresses.
+ *
+ * Verification runs create real orders; this removes them so /admin/orders and
+ * the dashboard revenue figure are not polluted. Matches @example.com only.
+ */
+export const deleteTestOrders = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const orders = await ctx.db.query("orders").collect();
+
+    const deleted: string[] = [];
+    for (const order of orders) {
+      if (!order.email.endsWith("@example.com")) continue;
+      await ctx.db.delete(order._id);
+      deleted.push(order.email);
+    }
+
+    return { deleted: deleted.length };
+  },
+});

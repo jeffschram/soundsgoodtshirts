@@ -45,6 +45,10 @@ const applicationTables = {
     })),
     total: v.number(),
     status: v.string(),
+    // Unguessable token letting a guest view their own order after checkout.
+    // The order _id is not a secret — it ends up in history, referrers and
+    // shared links — so it cannot be the thing that grants access.
+    accessToken: v.optional(v.string()),
     printfulOrderId: v.optional(v.number()),
     // Last fulfillment error, retained so a stuck paid order is visible in
     // /admin/orders rather than silently sitting in "processing".

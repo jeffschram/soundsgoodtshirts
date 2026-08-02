@@ -32,11 +32,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuantity = (itemId: Id<"cartItems">, quantity: number) => {
-    updateQuantityMutation({ itemId, quantity });
+    updateQuantityMutation({ itemId, sessionId, quantity });
   };
 
   const removeFromCart = (itemId: Id<"cartItems">) => {
-    removeItemMutation({ itemId });
+    removeItemMutation({ itemId, sessionId });
   };
 
   const clearCart = () => {

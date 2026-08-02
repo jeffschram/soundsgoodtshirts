@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 export const getItems = query({
   args: { sessionId: v.string() },
@@ -55,22 +56,46 @@ export const addItem = mutation({
   },
 });
 
+/**
+ * Carts are keyed by a client-generated session id, so any mutation that takes
+ * a cartItems id must prove the item belongs to the caller's session —
+ * otherwise a guessed id lets anyone edit a stranger's cart.
+ */
+async function requireOwnedCartItem(
+  ctx: { db: any },
+  itemId: Id<"cartItems">,
+  sessionId: string
+) {
+  const item = await ctx.db.get(itemId);
+  if (!item || item.sessionId !== sessionId) {
+    throw new Error("Cart item not found.");
+  }
+  return item;
+}
+
 export const updateQuantity = mutation({
   args: {
     itemId: v.id("cartItems"),
+    sessionId: v.string(),
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireOwnedCartItem(ctx, args.itemId, args.sessionId);
+
     if (args.quantity <= 0) {
       return await ctx.db.delete(args.itemId);
+    }
+    if (!Number.isInteger(args.quantity)) {
+      throw new Error("Quantity must be a whole number.");
     }
     return await ctx.db.patch(args.itemId, { quantity: args.quantity });
   },
 });
 
 export const removeItem = mutation({
-  args: { itemId: v.id("cartItems") },
+  args: { itemId: v.id("cartItems"), sessionId: v.string() },
   handler: async (ctx, args) => {
+    await requireOwnedCartItem(ctx, args.itemId, args.sessionId);
     return await ctx.db.delete(args.itemId);
   },
 });

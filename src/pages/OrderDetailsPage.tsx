@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "../../convex/_generated/api";
@@ -14,11 +14,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
+  // Guests arrive from the Stripe redirect carrying an access token; signed-in
+  // owners and admins are authorised without one.
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? undefined;
+
   const order = useQuery(api.orders.get, {
     id: id as Id<"orders">,
+    token,
   });
   const orderItems = useQuery(api.orders.getOrderItems, {
     orderId: id as Id<"orders">,
+    token,
   });
 
   if (!order) {

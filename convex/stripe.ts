@@ -56,7 +56,11 @@ export const createCheckoutSession = action({
       body: new URLSearchParams(
         flattenForStripe({
           mode: "payment",
-          success_url: `${siteUrl}/order/${args.orderId}?payment=success`,
+          // The token lets a guest read their own order after the redirect,
+          // so the order id alone never grants access.
+          success_url: `${siteUrl}/order/${args.orderId}?payment=success${
+            order.accessToken ? `&token=${order.accessToken}` : ""
+          }`,
           cancel_url: `${siteUrl}/cart?payment=cancelled`,
           customer_email: order.email,
           metadata: { orderId: args.orderId },
