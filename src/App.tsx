@@ -16,6 +16,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminOrderDetails from "./pages/admin/AdminOrderDetails";
 import AdminUsers from "./pages/admin/AdminUsers";
 import { CartProvider } from "./context/CartContext";
 
@@ -41,6 +42,7 @@ export default function App() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="orders" element={<AdminOrders />} />
+                <Route path="orders/:orderId" element={<AdminOrderDetails />} />
                 <Route path="users" element={<AdminUsers />} />
               </Route>
             </Routes>

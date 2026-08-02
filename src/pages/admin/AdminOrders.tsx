@@ -1,6 +1,9 @@
 import { useQuery, useMutation } from "convex/react";
+import { Eye } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { ORDER_STATUSES } from "@/components/OrderStatusBadge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -50,6 +53,7 @@ export default function AdminOrders() {
                 <TableHead className="text-right">Items</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,6 +90,13 @@ export default function AdminOrders() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(order._creationTime).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to={`/admin/orders/${order._id}`}>
+                        <Eye aria-hidden /> View
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
