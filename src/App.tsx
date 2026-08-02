@@ -8,6 +8,8 @@ import ProductPage from "./pages/ProductPage";
 import CartPage from "./pages/CartPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import ShippingPolicyPage from "./pages/ShippingPolicyPage";
+import ReturnsPolicyPage from "./pages/ReturnsPolicyPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import SignInPage from "./pages/SignInPage";
 import MyAccountPage from "./pages/MyAccountPage";
@@ -34,6 +36,8 @@ export default function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
+              <Route path="/returns-policy" element={<ReturnsPolicyPage />} />
               <Route path="/sign-in" element={<SignInPage />} />
               <Route path="/my-account" element={<MyAccountPage />} />
               <Route path="/order/:id" element={<OrderDetailsPage />} />
