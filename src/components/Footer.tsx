@@ -49,6 +49,18 @@ export default function Footer() {
         <div>
           <h4 className="text-sm font-semibold">Support</h4>
           <nav className="mt-3 flex flex-col gap-2">
+            <Link
+              to="/shipping-policy"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Shipping Policy
+            </Link>
+            <Link
+              to="/returns-policy"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Returns Policy
+            </Link>
             <a
               href="mailto:hello@soundsgoodtshirts.com"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
