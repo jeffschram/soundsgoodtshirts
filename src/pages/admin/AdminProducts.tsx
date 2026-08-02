@@ -1,19 +1,12 @@
-import { useEffect, useState } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { Archive, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -22,16 +15,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProductEditor, type ProductFormPayload } from "./ProductEditor";
 
 export default function AdminProducts() {
   const products = useQuery(api.admin.listAllProducts);
-  const updateProduct = useMutation(api.admin.updateProduct);
-  const deleteProduct = useMutation(api.admin.deleteProduct);
   const createProduct = useMutation(api.admin.createProduct);
+  const updateProduct = useMutation(api.admin.updateProduct);
+  const archiveProduct = useMutation(api.admin.deleteProduct);
+  const hardDeleteProduct = useMutation(api.admin.hardDeleteProduct);
   const syncPrintfulProducts = useAction(api.admin.syncPrintfulProducts);
-  const [showCreate, setShowCreate] = useState(false);
+
   const [syncing, setSyncing] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -41,18 +36,58 @@ export default function AdminProducts() {
         `Synced ${synced} product${synced === 1 ? "" : "s"} from Printful` +
           (deactivated > 0
             ? `, deactivated ${deactivated} no longer in the store`
-            : "")
+            : ""),
       );
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Printful sync failed."
+        error instanceof Error ? error.message : "Printful sync failed.",
       );
     } finally {
       setSyncing(false);
     }
   };
+  const [editingId, setEditingId] = useState<Id<"products"> | null>(null);
+  const editingProduct = products?.find((product) => product._id === editingId);
 
-  if (!products) {
+  const handleArchive = async (id: Id<"products">, name: string) => {
+    if (
+      !window.confirm(
+        `Archive “${name}”? It will leave the storefront but remain in order history.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await archiveProduct({ id });
+      toast.success(`Archived ${name}`);
+      if (editingId === id) setEditingId(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not archive product.",
+      );
+    }
+  };
+
+  const handleHardDelete = async (id: Id<"products">, name: string) => {
+    const confirmation = window.prompt(
+      `Permanently delete “${name}”? This is only allowed when no order or cart references it.\n\nType the product name exactly to continue:`,
+    );
+    if (confirmation === null) return;
+
+    try {
+      await hardDeleteProduct({ id, confirmation });
+      toast.success(`Permanently deleted ${name}`);
+      if (editingId === id) setEditingId(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not permanently delete product.",
+      );
+    }
+  };
+
+  if (products === undefined) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-40" />
@@ -61,10 +96,20 @@ export default function AdminProducts() {
     );
   }
 
+  const closeEditor = () => {
+    setShowCreate(false);
+    setEditingId(null);
+  };
+
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Edit storefront details and archive products without damaging order history.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -76,21 +121,36 @@ export default function AdminProducts() {
           </Button>
           <Button
             variant={showCreate ? "outline" : "default"}
-            onClick={() => setShowCreate(!showCreate)}
+            onClick={() => {
+              setEditingId(null);
+              setShowCreate((current) => !current);
+            }}
           >
-            {showCreate ? "Cancel" : "Add Product"}
+            {showCreate ? "Cancel" : "Add product"}
           </Button>
         </div>
       </div>
 
-      {showCreate && (
-        <CreateProductForm
-          onCreate={async (data) => {
-            await createProduct(data);
-            setShowCreate(false);
+      {showCreate ? (
+        <ProductEditor
+          key="create"
+          onCancel={closeEditor}
+          onSubmit={async (payload: ProductFormPayload) => {
+            await createProduct(payload);
+            closeEditor();
           }}
         />
-      )}
+      ) : editingProduct ? (
+        <ProductEditor
+          key={editingProduct._id}
+          product={editingProduct}
+          onCancel={closeEditor}
+          onSubmit={async (payload: ProductFormPayload) => {
+            await updateProduct({ id: editingProduct._id, ...payload });
+            closeEditor();
+          }}
+        />
+      ) : null}
 
       <div className="mt-6 overflow-x-auto rounded-xl border">
         <Table>
@@ -98,69 +158,75 @@ export default function AdminProducts() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Slug</TableHead>
-              <TableHead className="min-w-64">Custom description</TableHead>
               <TableHead className="text-right">Price</TableHead>
-              <TableHead>Featured</TableHead>
-              <TableHead>Active</TableHead>
+              <TableHead className="text-right">Variants</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {products.map((product) => (
               <TableRow key={product._id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>
+                  <p className="font-medium">{product.name}</p>
+                  {product.featured ? (
+                    <span className="text-xs text-muted-foreground">Featured</span>
+                  ) : null}
+                </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {product.slug}
-                </TableCell>
-                <TableCell>
-                  <DescriptionCell
-                    productName={product.name}
-                    value={product.description ?? ""}
-                    onSave={(description) =>
-                      updateProduct({ id: product._id, description })
-                    }
-                  />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   ${product.price.toFixed(2)}
                 </TableCell>
-                <TableCell>
-                  <Checkbox
-                    checked={product.featured}
-                    onCheckedChange={(checked) =>
-                      updateProduct({
-                        id: product._id,
-                        featured: checked === true,
-                      })
-                    }
-                    aria-label={`Toggle featured for ${product.name}`}
-                  />
+                <TableCell className="text-right tabular-nums">
+                  {product.variants.length}
                 </TableCell>
                 <TableCell>
-                  <Checkbox
-                    checked={product.active}
-                    onCheckedChange={(checked) =>
-                      updateProduct({
-                        id: product._id,
-                        active: checked === true,
-                      })
-                    }
-                    aria-label={`Toggle active for ${product.name}`}
-                  />
+                  {product.printfulId !== undefined ? (
+                    <Badge variant="outline">Printful #{product.printfulId}</Badge>
+                  ) : (
+                    <Badge variant="secondary">Manual</Badge>
+                  )}
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => {
-                      if (confirm("Permanently delete this product?")) {
-                        deleteProduct({ id: product._id });
-                      }
-                    }}
-                    aria-label={`Delete ${product.name}`}
-                  >
-                    <Trash2 className="text-destructive" />
-                  </Button>
+                <TableCell>
+                  <Badge variant={product.active ? "default" : "secondary"}>
+                    {product.active ? "Active" : "Archived"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => {
+                        setShowCreate(false);
+                        setEditingId(product._id);
+                      }}
+                      aria-label={`Edit ${product.name}`}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                    {product.active ? (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => void handleArchive(product._id, product.name)}
+                        aria-label={`Archive ${product.name}`}
+                      >
+                        <Archive aria-hidden />
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => void handleHardDelete(product._id, product.name)}
+                      aria-label={`Permanently delete ${product.name}`}
+                    >
+                      <Trash2 className="text-destructive" aria-hidden />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -168,197 +234,5 @@ export default function AdminProducts() {
         </Table>
       </div>
     </div>
-  );
-}
-
-/**
- * Inline editor for the hand-written product copy.
- *
- * Saves on blur. This is a focused stopgap so copywriting is not blocked on
- * the full product edit form, which is tracked separately.
- */
-function DescriptionCell({
-  productName,
-  value,
-  onSave,
-}: {
-  productName: string;
-  value: string;
-  onSave: (description: string) => Promise<unknown>;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [saving, setSaving] = useState(false);
-
-  // Re-sync if the row changes underneath us (e.g. after a Printful sync).
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  const commit = async () => {
-    if (draft === value) return;
-    setSaving(true);
-    try {
-      await onSave(draft);
-      toast.success(`Saved copy for ${productName}`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not save description."
-      );
-      setDraft(value);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Textarea
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => void commit()}
-      disabled={saving}
-      rows={2}
-      placeholder="Add the funny copy…"
-      aria-label={`Custom description for ${productName}`}
-      className="min-w-64 text-sm"
-    />
-  );
-}
-
-function CreateProductForm({
-  onCreate,
-}: {
-  onCreate: (data: any) => Promise<void>;
-}) {
-  const [form, setForm] = useState({
-    name: "",
-    slug: "",
-    description: "",
-    price: "",
-    categories: "",
-    tags: "",
-    featured: false,
-  });
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await onCreate({
-        name: form.name,
-        slug:
-          form.slug ||
-          form.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, ""),
-        description: form.description,
-        price: parseFloat(form.price),
-        images: [],
-        categories: form.categories
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean),
-        tags: form.tags
-          ? form.tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : undefined,
-        featured: form.featured,
-        variants: [],
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle>New Product</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="product-name">Name</Label>
-              <Input
-                id="product-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="product-slug">Slug</Label>
-              <Input
-                id="product-slug"
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="Auto-generated from name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="product-price">Price</Label>
-              <Input
-                id="product-price"
-                type="number"
-                step="0.01"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="product-categories">
-                Categories (comma-separated)
-              </Label>
-              <Input
-                id="product-categories"
-                value={form.categories}
-                onChange={(e) =>
-                  setForm({ ...form, categories: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="product-tags">Tags (comma-separated)</Label>
-              <Input
-                id="product-tags"
-                value={form.tags}
-                onChange={(e) => setForm({ ...form, tags: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="product-description">Custom description</Label>
-              <Textarea
-                id="product-description"
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="product-featured"
-              checked={form.featured}
-              onCheckedChange={(checked) =>
-                setForm({ ...form, featured: checked === true })
-              }
-            />
-            <Label htmlFor="product-featured">Featured</Label>
-          </div>
-
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating..." : "Create Product"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }

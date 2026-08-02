@@ -96,7 +96,8 @@ const applicationTables = {
     variantId: v.number(),
     quantity: v.number(),
   }).index("by_session", ["sessionId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_product", ["productId"]),
 };
 
 export default defineSchema({
