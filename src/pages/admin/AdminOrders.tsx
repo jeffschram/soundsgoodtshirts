@@ -49,6 +49,7 @@ export default function AdminOrders() {
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Items</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Fulfillment</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -65,7 +66,7 @@ export default function AdminOrders() {
                   <TableCell className="text-right tabular-nums">
                     {order.items.length}
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-slot="order-status">
                     <Select
                       value={order.status}
                       onValueChange={(status) =>
@@ -83,6 +84,33 @@ export default function AdminOrders() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell className="max-w-64 text-xs">
+                    {order.fulfillmentError ? (
+                      <span
+                        className="text-destructive"
+                        title={order.fulfillmentError}
+                      >
+                        {order.fulfillmentError.slice(0, 70)}
+                        {order.fulfillmentError.length > 70 ? "…" : ""}
+                      </span>
+                    ) : order.shipment?.trackingNumber ? (
+                      <a
+                        href={order.shipment.trackingUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono underline underline-offset-4"
+                      >
+                        {order.shipment.carrier ?? "Tracking"}{" "}
+                        {order.shipment.trackingNumber}
+                      </a>
+                    ) : order.printfulOrderId ? (
+                      <span className="font-mono text-muted-foreground">
+                        Printful #{order.printfulOrderId}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(order._creationTime).toLocaleDateString()}

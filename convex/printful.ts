@@ -1,25 +1,49 @@
-import { internalAction, internalMutation } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
 const PRINTFUL_API_URL = "https://api.printful.com";
 
-async function printfulFetch(path: string, token: string) {
+/** Carries the HTTP status so callers can tell retryable failures from fatal ones. */
+class PrintfulError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "PrintfulError";
+  }
+}
+
+async function printfulRequest(
+  path: string,
+  token: string,
+  init?: { method?: string; body?: string }
+) {
   const response = await fetch(`${PRINTFUL_API_URL}${path}`, {
+    method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
+    ...(init?.body ? { body: init.body } : {}),
   });
 
   if (!response.ok) {
+    // Printful puts the useful detail in the body; the status text alone makes
+    // fulfillment failures undebuggable.
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `Printful API error: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`
+    throw new PrintfulError(
+      `Printful API error: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
+      response.status
     );
   }
 
   return response.json();
+}
+
+async function printfulFetch(path: string, token: string) {
+  return printfulRequest(path, token);
 }
 
 function slugify(name: string): string {
@@ -260,5 +284,222 @@ export const deactivateMissingProducts = internalMutation({
     }
 
     return { deactivated };
+  },
+});
+
+// ---- Order fulfillment ----
+
+const MAX_FULFILLMENT_ATTEMPTS = 3;
+
+export const getOrderForFulfillment = internalQuery({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.orderId);
+  },
+});
+
+export const recordFulfillmentSuccess = internalMutation({
+  args: { orderId: v.id("orders"), printfulOrderId: v.number() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.orderId, {
+      printfulOrderId: args.printfulOrderId,
+      status: "submitted",
+      fulfillmentError: undefined,
+    });
+  },
+});
+
+export const recordFulfillmentFailure = internalMutation({
+  args: {
+    orderId: v.id("orders"),
+    error: v.string(),
+    final: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.orderId, {
+      fulfillmentError: args.error,
+      // Only a final failure changes status; a retrying order stays as-is so
+      // it is not shown as failed while attempts remain.
+      ...(args.final ? { status: "fulfillment_failed" } : {}),
+    });
+  },
+});
+
+/**
+ * Submit a paid order to Printful.
+ *
+ * Scheduled from stripe.applyPaymentStatus once payment is confirmed, so the
+ * webhook can return 200 immediately. Idempotent: an order that already has a
+ * printfulOrderId returns early, because Stripe retries webhooks and a double
+ * submission means two shirts shipped for one payment.
+ *
+ * Creates a DRAFT order unless PRINTFUL_CONFIRM_ORDERS is "true". Flip that
+ * env var once a real order has been verified end to end.
+ */
+export const submitOrder = internalAction({
+  args: { orderId: v.id("orders"), attempt: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<void> => {
+    const attempt = args.attempt ?? 0;
+
+    const token = process.env.PRINTFUL_API_TOKEN;
+    if (!token) {
+      await ctx.runMutation(internal.printful.recordFulfillmentFailure, {
+        orderId: args.orderId,
+        error: "PRINTFUL_API_TOKEN is not set in the Convex dashboard.",
+        final: true,
+      });
+      return;
+    }
+
+    const order = await ctx.runQuery(internal.printful.getOrderForFulfillment, {
+      orderId: args.orderId,
+    });
+    if (!order) return;
+    if (order.printfulOrderId !== undefined) return;
+
+    const confirm = process.env.PRINTFUL_CONFIRM_ORDERS === "true";
+
+    const payload = {
+      // Lets a Printful webhook resolve back to this order even if the
+      // response is lost before printfulOrderId is stored.
+      external_id: args.orderId,
+      recipient: {
+        name: order.shippingAddress.name,
+        address1: order.shippingAddress.address1,
+        ...(order.shippingAddress.address2
+          ? { address2: order.shippingAddress.address2 }
+          : {}),
+        city: order.shippingAddress.city,
+        state_code: order.shippingAddress.state,
+        country_code: order.shippingAddress.country,
+        zip: order.shippingAddress.zip,
+        email: order.email,
+      },
+      // variantId is the Printful sync variant id written by syncProducts.
+      items: order.items.map((item) => ({
+        sync_variant_id: item.variantId,
+        quantity: item.quantity,
+      })),
+    };
+
+    try {
+      const response = await printfulRequest(
+        `/orders?confirm=${confirm ? 1 : 0}`,
+        token,
+        { method: "POST", body: JSON.stringify(payload) }
+      );
+
+      const printfulOrderId = response?.result?.id;
+      if (typeof printfulOrderId !== "number") {
+        throw new Error("Printful accepted the order but returned no order id.");
+      }
+
+      await ctx.runMutation(internal.printful.recordFulfillmentSuccess, {
+        orderId: args.orderId,
+        printfulOrderId,
+      });
+    } catch (error) {
+      const status = error instanceof PrintfulError ? error.status : 0;
+      const message = error instanceof Error ? error.message : String(error);
+
+      // 4xx means the request is malformed or the variant is gone — retrying
+      // will never succeed. Network errors, 429 and 5xx are worth another go.
+      const retryable = status === 0 || status === 429 || status >= 500;
+      const attemptsLeft = attempt + 1 < MAX_FULFILLMENT_ATTEMPTS;
+
+      await ctx.runMutation(internal.printful.recordFulfillmentFailure, {
+        orderId: args.orderId,
+        error: message.slice(0, 500),
+        final: !(retryable && attemptsLeft),
+      });
+
+      if (retryable && attemptsLeft) {
+        await ctx.scheduler.runAfter(
+          (attempt + 1) * 60_000,
+          internal.printful.submitOrder,
+          { orderId: args.orderId, attempt: attempt + 1 }
+        );
+      }
+    }
+  },
+});
+
+// ---- Fulfillment status from Printful ----
+
+/**
+ * Map a Printful order status onto this app's order vocabulary.
+ *
+ * Returns null for states that should not move the order, so an unknown
+ * Printful status never writes a string the badge cannot render.
+ */
+export function mapPrintfulStatus(printfulStatus: string): string | null {
+  switch (printfulStatus) {
+    case "draft":
+    case "pending":
+    case "inprocess":
+    case "onhold":
+    case "partial":
+      return "submitted";
+    case "fulfilled":
+      return "shipped";
+    case "failed":
+      return "fulfillment_failed";
+    case "canceled":
+    case "cancelled":
+      return "cancelled";
+    default:
+      return null;
+  }
+}
+
+export const applyPrintfulUpdate = internalMutation({
+  args: {
+    printfulOrderId: v.optional(v.number()),
+    externalId: v.optional(v.string()),
+    status: v.optional(v.string()),
+    shipment: v.optional(
+      v.object({
+        carrier: v.optional(v.string()),
+        trackingNumber: v.optional(v.string()),
+        trackingUrl: v.optional(v.string()),
+        shippedAt: v.optional(v.number()),
+      })
+    ),
+  },
+  handler: async (ctx, args): Promise<{ matched: boolean }> => {
+    let order = null;
+
+    if (args.printfulOrderId !== undefined) {
+      order = await ctx.db
+        .query("orders")
+        .withIndex("by_printful_order_id", (q) =>
+          q.eq("printfulOrderId", args.printfulOrderId)
+        )
+        .unique();
+    }
+
+    // external_id is the Convex order id we sent at submission time; it rescues
+    // orders whose printfulOrderId never got stored.
+    if (!order && args.externalId) {
+      const orderId = ctx.db.normalizeId("orders", args.externalId);
+      if (orderId) {
+        order = await ctx.db.get(orderId);
+      }
+    }
+
+    if (!order) {
+      return { matched: false };
+    }
+
+    await ctx.db.patch(order._id, {
+      ...(args.status ? { status: args.status } : {}),
+      ...(args.shipment ? { shipment: args.shipment } : {}),
+      ...(args.printfulOrderId !== undefined &&
+      order.printfulOrderId === undefined
+        ? { printfulOrderId: args.printfulOrderId }
+        : {}),
+    });
+
+    return { matched: true };
   },
 });

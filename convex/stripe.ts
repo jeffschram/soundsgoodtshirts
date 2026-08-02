@@ -73,9 +73,10 @@ export const createCheckoutSession = action({
     const session: { id: string; url: string; payment_intent: string | null } =
       await response.json();
 
-    await ctx.runMutation(internal.stripe.setPaymentIntent, {
+    await ctx.runMutation(internal.stripe.setCheckoutSession, {
       orderId: args.orderId,
-      stripePaymentIntentId: session.payment_intent || session.id,
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent ?? undefined,
     });
 
     return { url: session.url };
@@ -116,30 +117,114 @@ export const getOrderProducts = internalQuery({
   },
 });
 
-export const setPaymentIntent = internalMutation({
+export const setCheckoutSession = internalMutation({
   args: {
     orderId: v.id("orders"),
-    stripePaymentIntentId: v.string(),
+    stripeSessionId: v.string(),
+    stripePaymentIntentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.orderId, {
-      stripePaymentIntentId: args.stripePaymentIntentId,
+      stripeSessionId: args.stripeSessionId,
+      ...(args.stripePaymentIntentId
+        ? { stripePaymentIntentId: args.stripePaymentIntentId }
+        : {}),
     });
   },
 });
 
-export const fulfillOrder = internalMutation({
-  args: {
-    stripeSessionId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const orders = await ctx.db.query("orders").collect();
-    const order = orders.find(
-      (o) => o.stripePaymentIntentId === args.stripeSessionId
-    );
-    if (order) {
-      await ctx.db.patch(order._id, { status: "processing" });
+/**
+ * Claim a Stripe event id. Returns true if it was already processed.
+ *
+ * Convex mutations are transactional, so this check-then-insert is safe against
+ * concurrent redeliveries of the same event.
+ */
+export const recordEventOnce = internalMutation({
+  args: { eventId: v.string(), type: v.string() },
+  handler: async (ctx, args): Promise<boolean> => {
+    const existing = await ctx.db
+      .query("stripeEvents")
+      .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
+      .unique();
+
+    if (existing) {
+      return true;
     }
+
+    await ctx.db.insert("stripeEvents", {
+      eventId: args.eventId,
+      type: args.type,
+      processedAt: Date.now(),
+    });
+    return false;
+  },
+});
+
+/**
+ * Apply a payment status to an order.
+ *
+ * Resolution order: the `orderId` we put in session metadata, then the Checkout
+ * Session id, then the payment intent id. All three are indexed — the previous
+ * implementation collected the entire orders table on every webhook.
+ */
+export const applyPaymentStatus = internalMutation({
+  args: {
+    orderIdRaw: v.optional(v.string()),
+    stripeSessionId: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    status: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ matched: boolean }> => {
+    let order = null;
+
+    if (args.orderIdRaw) {
+      // The metadata value came from outside, so it must be normalized rather
+      // than cast — an arbitrary string would throw on ctx.db.get.
+      const orderId = ctx.db.normalizeId("orders", args.orderIdRaw);
+      if (orderId) {
+        order = await ctx.db.get(orderId);
+      }
+    }
+
+    if (!order && args.stripeSessionId) {
+      order = await ctx.db
+        .query("orders")
+        .withIndex("by_stripe_session_id", (q) =>
+          q.eq("stripeSessionId", args.stripeSessionId)
+        )
+        .unique();
+    }
+
+    if (!order && args.stripePaymentIntentId) {
+      order = await ctx.db
+        .query("orders")
+        .withIndex("by_stripe_payment_intent", (q) =>
+          q.eq("stripePaymentIntentId", args.stripePaymentIntentId)
+        )
+        .unique();
+    }
+
+    if (!order) {
+      return { matched: false };
+    }
+
+    await ctx.db.patch(order._id, {
+      status: args.status,
+      ...(args.stripePaymentIntentId
+        ? { stripePaymentIntentId: args.stripePaymentIntentId }
+        : {}),
+    });
+
+    // Payment confirmed: hand off to Printful. Scheduled rather than awaited so
+    // the webhook still returns 200 promptly, and guarded on printfulOrderId so
+    // a redelivered event cannot submit the order twice.
+    if (args.status === "processing" && order.printfulOrderId === undefined) {
+      await ctx.scheduler.runAfter(0, internal.printful.submitOrder, {
+        orderId: order._id,
+      });
+    }
+
+    return { matched: true };
   },
 });
 

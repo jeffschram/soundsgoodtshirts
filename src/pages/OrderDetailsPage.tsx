@@ -69,6 +69,36 @@ export default function OrderDetailsPage() {
               <span className="text-muted-foreground">Status</span>
               <OrderStatusBadge status={order.status} />
             </div>
+            {order.shipment?.trackingNumber && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">
+                  Tracking
+                  {order.shipment.carrier ? ` (${order.shipment.carrier})` : ""}
+                </span>
+                {order.shipment.trackingUrl ? (
+                  <a
+                    href={order.shipment.trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-xs underline underline-offset-4"
+                  >
+                    {order.shipment.trackingNumber}
+                  </a>
+                ) : (
+                  <span className="font-mono text-xs">
+                    {order.shipment.trackingNumber}
+                  </span>
+                )}
+              </div>
+            )}
+            {order.shipment?.shippedAt && (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Shipped</span>
+                <span>
+                  {new Date(order.shipment.shippedAt).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

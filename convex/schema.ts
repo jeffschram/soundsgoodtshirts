@@ -46,6 +46,19 @@ const applicationTables = {
     total: v.number(),
     status: v.string(),
     printfulOrderId: v.optional(v.number()),
+    // Last fulfillment error, retained so a stuck paid order is visible in
+    // /admin/orders rather than silently sitting in "processing".
+    fulfillmentError: v.optional(v.string()),
+    shipment: v.optional(v.object({
+      carrier: v.optional(v.string()),
+      trackingNumber: v.optional(v.string()),
+      trackingUrl: v.optional(v.string()),
+      shippedAt: v.optional(v.number()),
+    })),
+    // The Checkout Session id, known at session creation. `payment_intent` is
+    // null on a fresh session, so this is the identifier a webhook can be
+    // matched on reliably.
+    stripeSessionId: v.optional(v.string()),
     stripePaymentIntentId: v.optional(v.string()),
     shippingAddress: v.object({
       name: v.string(),
@@ -57,7 +70,18 @@ const applicationTables = {
       country: v.string(),
     }),
   }).index("by_user", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_stripe_session_id", ["stripeSessionId"])
+    .index("by_stripe_payment_intent", ["stripePaymentIntentId"])
+    .index("by_printful_order_id", ["printfulOrderId"]),
+
+  // Processed Stripe event ids. Stripe retries deliveries, so fulfillment must
+  // be keyed on the event id to stay idempotent.
+  stripeEvents: defineTable({
+    eventId: v.string(),
+    type: v.string(),
+    processedAt: v.number(),
+  }).index("by_event_id", ["eventId"]),
 
   cartItems: defineTable({
     sessionId: v.string(),
