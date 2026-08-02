@@ -1,6 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 
 async function requireAdmin(ctx: any) {
   const userId = await getAuthUserId(ctx);
@@ -83,6 +84,37 @@ export const deleteProduct = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     await ctx.db.delete(args.id);
+  },
+});
+
+/**
+ * Admin-only entry point for the Printful sync.
+ *
+ * Actions have no `ctx.db`, so the admin check runs through an internal query.
+ */
+export const isCurrentUserAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return false;
+    }
+    const user = await ctx.db.get(userId);
+    return user?.isAdmin === true;
+  },
+});
+
+export const syncPrintfulProducts = action({
+  args: {},
+  handler: async (ctx): Promise<{ synced: number; deactivated: number }> => {
+    const isAdmin: boolean = await ctx.runQuery(
+      internal.admin.isCurrentUserAdmin,
+      {}
+    );
+    if (!isAdmin) {
+      throw new Error("Not authorized");
+    }
+    return await ctx.runAction(internal.printful.syncProducts, {});
   },
 });
 

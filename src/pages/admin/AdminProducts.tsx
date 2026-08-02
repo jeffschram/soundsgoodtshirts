@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { Trash2 } from "lucide-react";
+import { useQuery, useMutation, useAction } from "convex/react";
+import { RefreshCw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +29,28 @@ export default function AdminProducts() {
   const updateProduct = useMutation(api.admin.updateProduct);
   const deleteProduct = useMutation(api.admin.deleteProduct);
   const createProduct = useMutation(api.admin.createProduct);
+  const syncPrintfulProducts = useAction(api.admin.syncPrintfulProducts);
   const [showCreate, setShowCreate] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { synced, deactivated } = await syncPrintfulProducts();
+      toast.success(
+        `Synced ${synced} product${synced === 1 ? "" : "s"} from Printful` +
+          (deactivated > 0
+            ? `, deactivated ${deactivated} no longer in the store`
+            : "")
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Printful sync failed."
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   if (!products) {
     return (
@@ -43,12 +65,22 @@ export default function AdminProducts() {
     <div>
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-        <Button
-          variant={showCreate ? "outline" : "default"}
-          onClick={() => setShowCreate(!showCreate)}
-        >
-          {showCreate ? "Cancel" : "Add Product"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleSync()}
+            disabled={syncing}
+          >
+            <RefreshCw className={syncing ? "animate-spin" : undefined} />
+            {syncing ? "Syncing…" : "Sync from Printful"}
+          </Button>
+          <Button
+            variant={showCreate ? "outline" : "default"}
+            onClick={() => setShowCreate(!showCreate)}
+          >
+            {showCreate ? "Cancel" : "Add Product"}
+          </Button>
+        </div>
       </div>
 
       {showCreate && (
