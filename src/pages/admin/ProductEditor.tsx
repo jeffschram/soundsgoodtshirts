@@ -27,6 +27,9 @@ import { Textarea } from "@/components/ui/textarea";
 type VariantDraft = {
   key: string;
   id: string;
+  // Carried, never edited: dropping it would make the saved variants differ
+  // from the stored ones and trip updateProduct's Printful-managed guard.
+  printfulVariantId?: number;
   name: string;
   size: string;
   color: string;
@@ -59,6 +62,7 @@ export type ProductFormPayload = {
   active: boolean;
   variants: Array<{
     id: number;
+    printfulVariantId?: number;
     name: string;
     size: string;
     color: string;
@@ -97,6 +101,7 @@ function draftFor(product?: Doc<"products">): ProductDraft {
       product?.variants.map((variant) => ({
         key: `${variant.id}-${crypto.randomUUID()}`,
         id: String(variant.id),
+        printfulVariantId: variant.printfulVariantId,
         name: variant.name,
         size: variant.size,
         color: variant.color,
@@ -136,6 +141,10 @@ function toPayload(draft: ProductDraft): ProductFormPayload {
     }
     return {
       id,
+      // Round-tripped untouched so the saved variants match what is stored.
+      ...(variant.printfulVariantId !== undefined
+        ? { printfulVariantId: variant.printfulVariantId }
+        : {}),
       name: variant.name.trim(),
       size: variant.size.trim(),
       color: variant.color.trim(),

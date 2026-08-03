@@ -97,7 +97,7 @@ export interface ShippingQuote {
  */
 export async function quoteShippingRate(
   recipient: ShippingRecipient,
-  items: Array<{ variantId: number; quantity: number }>,
+  items: Array<{ printfulVariantId?: number; quantity: number }>,
 ): Promise<ShippingQuote> {
   const token = process.env.PRINTFUL_API_TOKEN;
 
@@ -111,6 +111,15 @@ export async function quoteShippingRate(
 
   if (items.length === 0) {
     return { amount: 0, source: "fallback", fallbackReason: "No items" };
+  }
+
+  if (items.some((item) => typeof item.printfulVariantId !== "number")) {
+    return {
+      amount: FALLBACK_FLAT_SHIPPING_RATE_USD,
+      source: "fallback",
+      fallbackReason:
+        "An item has no Printful catalog variant id — re-run the Printful sync",
+    };
   }
 
   try {
@@ -129,8 +138,11 @@ export async function quoteShippingRate(
           country_code: recipient.country,
           zip: recipient.zip,
         },
+        // /shipping/rates wants variant_id (catalog), NOT sync_variant_id.
+        // Sending the sync id returns "Missing item variant_id" and every
+        // quote silently falls back to the flat placeholder.
         items: items.map((item) => ({
-          sync_variant_id: item.variantId,
+          variant_id: item.printfulVariantId,
           quantity: item.quantity,
         })),
         currency: "USD",
@@ -206,7 +218,7 @@ export const quoteShipping = action({
     }),
     items: v.array(
       v.object({
-        variantId: v.number(),
+        printfulVariantId: v.optional(v.number()),
         quantity: v.number(),
       }),
     ),
@@ -267,6 +279,8 @@ export const syncProducts = internalAction({
 
       const variants = syncVariants.map((sv: any) => ({
         id: sv.id,
+        // Catalog variant id, needed for shipping rate quotes.
+        printfulVariantId: sv.variant_id ?? sv.product?.variant_id ?? undefined,
         name: sv.name,
         size: sv.size || sv.product?.variant?.size || sv.sku || "One Size",
         color: sv.color || sv.product?.variant?.color || "Default",
@@ -369,6 +383,7 @@ export const upsertProduct = internalMutation({
     variants: v.array(
       v.object({
         id: v.number(),
+        printfulVariantId: v.optional(v.number()),
         name: v.string(),
         size: v.string(),
         color: v.string(),

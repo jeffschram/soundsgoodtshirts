@@ -44,8 +44,12 @@ export default function CheckoutPage() {
   const { address1, city, state, zip, country } = formData;
   const addressComplete = Boolean(address1 && city && state && zip && country);
 
+  // Printful's rate endpoint keys on the CATALOG variant id, not the sync
+  // variant id we store as `variantId` and send when submitting orders.
   const shippingItems = cartItems.map((item) => ({
-    variantId: item.variantId,
+    printfulVariantId: item.product?.variants.find(
+      (variant: any) => variant.id === item.variantId,
+    )?.printfulVariantId,
     quantity: item.quantity,
   }));
   const shippingItemsKey = JSON.stringify(shippingItems);
@@ -127,7 +131,11 @@ export default function CheckoutPage() {
       const { url } = await createCheckout({ orderId });
 
       if (url) {
-        clearCart();
+        // Deliberately NOT clearing the cart here. Two reasons: an in-flight
+        // Convex mutation at navigation makes the client's beforeunload
+        // handler fire Chrome's "Leave site?" dialog on the pay button, and a
+        // customer who cancels or fails payment would come back to an empty
+        // cart. The order page clears it once payment actually succeeded.
         window.location.href = url;
       } else {
         toast.error("Could not create payment session. Please try again.");

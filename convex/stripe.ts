@@ -85,6 +85,7 @@ export const createCheckoutSession = action({
       price: number;
       quantity: number;
       variantId: number;
+      printfulVariantId?: number;
     }> = await ctx.runQuery(internal.stripe.getOrderProducts, { orderId: args.orderId });
 
     // Prices come from the order, which orders.create built from the products
@@ -117,7 +118,7 @@ export const createCheckoutSession = action({
     const shippingQuote: ShippingQuote = await quoteShippingRate(
       order.shippingAddress,
       orderItems.map((item) => ({
-        variantId: item.variantId,
+        printfulVariantId: item.printfulVariantId,
         quantity: item.quantity,
       })),
     );
@@ -236,6 +237,7 @@ export const getOrderProducts = internalQuery({
       price: number;
       quantity: number;
       variantId: number;
+      printfulVariantId?: number;
     }> = [];
 
     for (const item of order.items) {
@@ -247,6 +249,7 @@ export const getOrderProducts = internalQuery({
         price: item.price,
         quantity: item.quantity,
         variantId: item.variantId,
+        printfulVariantId: variant?.printfulVariantId,
       });
     }
     return items;

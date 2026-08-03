@@ -13,6 +13,7 @@ const MAX_HARD_DELETE_ORDER_SCAN = 5_000;
 
 const productVariantValidator = v.object({
   id: v.number(),
+  printfulVariantId: v.optional(v.number()),
   name: v.string(),
   size: v.string(),
   color: v.string(),

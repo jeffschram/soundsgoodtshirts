@@ -25,7 +25,11 @@ const applicationTables = {
     tags: v.optional(v.array(v.string())),
     featured: v.boolean(),
     variants: v.array(v.object({
+      // Printful SYNC variant id — what /orders wants.
       id: v.number(),
+      // Printful CATALOG variant id — what /shipping/rates wants. The two are
+      // different numbers and the endpoints are not interchangeable.
+      printfulVariantId: v.optional(v.number()),
       name: v.string(),
       size: v.string(),
       color: v.string(),
