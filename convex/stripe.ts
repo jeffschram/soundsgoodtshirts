@@ -363,6 +363,17 @@ export const applyPaymentStatus = internalMutation({
       });
     }
 
+    // Confirmation email on payment. Scheduled, not awaited, so a Resend
+    // outage can never fail the webhook and make Stripe retry a paid order.
+    if (
+      args.status === "processing" &&
+      order.confirmationEmailSentAt === undefined
+    ) {
+      await ctx.scheduler.runAfter(0, internal.email.sendOrderConfirmation, {
+        orderId: order._id,
+      });
+    }
+
     return { matched: true };
   },
 });
