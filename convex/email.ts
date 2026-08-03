@@ -11,6 +11,9 @@ const RESEND_API_URL = "https://api.resend.com/emails";
 const FROM_ADDRESS = "Sounds Good T-Shirts <orders@soundsgoodtshirts.com>";
 const REPLY_TO_ADDRESS = "schramindustries@gmail.com";
 
+/** Where operational alerts go. Not customer-facing. */
+const ALERT_ADDRESS = "schramindustries@gmail.com";
+
 const MAX_EMAIL_ATTEMPTS = 3;
 
 function money(amount: number | undefined): string {
@@ -85,7 +88,8 @@ export const markEmailSent = internalMutation({
     orderId: v.id("orders"),
     field: v.union(
       v.literal("confirmationEmailSentAt"),
-      v.literal("shipmentEmailSentAt")
+      v.literal("shipmentEmailSentAt"),
+      v.literal("fulfillmentAlertSentAt")
     ),
   },
   handler: async (ctx, args) => {
@@ -260,6 +264,75 @@ Tracking: ${trackingLine}
       }
       console.error(
         `Shipment email failed for ${args.orderId}:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+  },
+});
+
+/**
+ * Alert the shop owner that a paid order will not be produced.
+ *
+ * Fires from both failure paths: Printful rejecting the order later via
+ * webhook, and our own submission exhausting its retries. Without this a
+ * customer has paid and nothing happens until someone opens /admin/orders.
+ */
+export const sendFulfillmentAlert = internalAction({
+  args: { orderId: v.id("orders"), attempt: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<void> => {
+    const attempt = args.attempt ?? 0;
+
+    const data = await ctx.runQuery(internal.email.getOrderForEmail, {
+      orderId: args.orderId,
+    });
+    if (!data) return;
+
+    const { order, items } = data;
+    if (order.fulfillmentAlertSentAt !== undefined) return;
+
+    const siteUrl = process.env.SITE_URL ?? "";
+    const reason = order.fulfillmentError ?? "No reason recorded.";
+    const printfulRef = order.printfulOrderId
+      ? `Printful order #${order.printfulOrderId}`
+      : "Never reached Printful";
+
+    const body = `<p style="margin:0 0 12px;font-size:14px">
+<strong>Customer:</strong> ${escapeHtml(order.email)}<br>
+<strong>Paid:</strong> ${money(order.total)}<br>
+<strong>${escapeHtml(printfulRef)}</strong>
+</p>
+<p style="margin:0 0 16px;padding:12px;background:#fdf1f1;border-radius:8px;font-size:13px;color:#7a1c1c">
+${escapeHtml(reason)}
+</p>
+${itemsTable(items)}
+${siteUrl ? `<p style="margin:20px 0 0"><a href="${siteUrl}/admin/orders" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px">Open admin orders</a></p>` : ""}`;
+
+    try {
+      await sendEmail({
+        to: ALERT_ADDRESS,
+        subject: `Fulfillment FAILED — order #${order._id.slice(-8)} (${money(order.total)} paid)`,
+        html: layout(
+          "An order was paid but will not be produced",
+          "This needs a human. The customer has been charged and Printful will not print the shirt until this is resolved.",
+          body
+        ),
+      });
+
+      await ctx.runMutation(internal.email.markEmailSent, {
+        orderId: args.orderId,
+        field: "fulfillmentAlertSentAt",
+      });
+    } catch (error) {
+      if (attempt + 1 < MAX_EMAIL_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          (attempt + 1) * 60_000,
+          internal.email.sendFulfillmentAlert,
+          { orderId: args.orderId, attempt: attempt + 1 }
+        );
+        return;
+      }
+      console.error(
+        `Fulfillment alert failed for ${args.orderId}:`,
         error instanceof Error ? error.message : error
       );
     }

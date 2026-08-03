@@ -64,6 +64,7 @@ const applicationTables = {
     // cannot send a customer the same email twice.
     confirmationEmailSentAt: v.optional(v.number()),
     shipmentEmailSentAt: v.optional(v.number()),
+    fulfillmentAlertSentAt: v.optional(v.number()),
     // Unguessable token letting a guest view their own order after checkout.
     // The order _id is not a secret — it ends up in history, referrers and
     // shared links — so it cannot be the thing that grants access.
