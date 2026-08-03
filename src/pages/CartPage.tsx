@@ -89,7 +89,10 @@ export default function CartPage() {
 
       <div className="flex flex-col items-end gap-4">
         <p className="text-lg font-semibold tabular-nums">
-          Total: ${cartTotal.total.toFixed(2)}
+          Subtotal: ${cartTotal.total.toFixed(2)}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Shipping and tax are calculated at checkout.
         </p>
         <Button asChild size="lg">
           <Link to="/checkout">Proceed to Checkout</Link>
