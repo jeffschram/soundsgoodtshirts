@@ -1,9 +1,11 @@
+import { useEffect, useRef } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
+import { useCart } from "@/context/CartContext";
 import {
   Card,
   CardContent,
@@ -27,6 +29,18 @@ export default function OrderDetailsPage() {
     orderId: id as Id<"orders">,
     token,
   });
+
+  // Clear the cart only once payment actually succeeded. Checkout deliberately
+  // leaves it intact so a cancelled or failed payment returns to a full cart.
+  const { clearCart } = useCart();
+  const clearedRef = useRef(false);
+
+  useEffect(() => {
+    if (searchParams.get("payment") !== "success") return;
+    if (clearedRef.current) return;
+    clearedRef.current = true;
+    clearCart();
+  }, [searchParams, clearCart]);
 
   if (!order) {
     return (
