@@ -43,6 +43,12 @@ const applicationTables = {
       quantity: v.number(),
       price: v.number(),
     })),
+    // Breakdown of `total`, so admin and the customer can see where the
+    // charge came from and it stays reconcilable against Printful's invoice.
+    // Optional because orders placed before this existed have no breakdown.
+    subtotal: v.optional(v.number()),
+    shipping: v.optional(v.number()),
+    tax: v.optional(v.number()),
     total: v.number(),
     status: v.string(),
     // Unguessable token letting a guest view their own order after checkout.

@@ -86,6 +86,56 @@ required in several jurisdictions given the site collects names, emails, and
 shipping addresses. They are the same shape of work as the two pages above.
 Write them before taking real orders.
 
+## Order totals: shipping and tax
+
+The charge is `subtotal + shipping + tax`, and **all three are computed
+server-side**. `orders.create` ignores any price or total the client sends and
+reads prices from the `products` table; `stripe.createCheckoutSession` quotes
+shipping from the saved address and lets Stripe price tax. The breakdown is
+read back off the priced Stripe session and stored on the order
+(`subtotal` / `shipping` / `tax` / `total`), so `/order/:id` and admin show
+what was actually charged and it can be reconciled against Printful's invoice.
+
+Convex environment variables (Dashboard → Settings → Environment Variables):
+
+| Variable | Required | Effect |
+| --- | --- | --- |
+| `STRIPE_SECRET_KEY` | yes | Existing. Without it checkout throws. |
+| `PRINTFUL_API_TOKEN` | recommended | Existing. Also used for live shipping rates. Without it, shipping falls back to a flat constant. |
+| `STRIPE_AUTOMATIC_TAX` | **set to `true` to collect tax** | Off by default. See below. |
+| `STRIPE_APPAREL_TAX_CODE` | optional | Stripe product tax code for clothing. Unset means Stripe uses the account default. |
+
+### Tax is off until you turn it on
+
+`STRIPE_AUTOMATIC_TAX` defaults to off **on purpose**. Setting
+`automatic_tax[enabled]=true` on a Stripe account that doesn't have Stripe Tax
+active makes session creation fail outright — that would take checkout down
+entirely rather than just leaving tax uncollected. So:
+
+1. Enable Stripe Tax in the Stripe dashboard and complete the registrations for
+   the states you have nexus in.
+2. Set `STRIPE_AUTOMATIC_TAX=true` in the Convex environment.
+3. Place a test order to a taxable state and confirm tax appears.
+
+Until step 2, orders are charged subtotal + shipping with `tax: 0`.
+
+Consider also setting `STRIPE_APPAREL_TAX_CODE` to Stripe's clothing tax code.
+Apparel is treated differently from general goods in several states — PA, NJ,
+and MN exempt clothing outright — so the account-default "general goods" code
+will over-collect there.
+
+### Shipping rates
+
+`printful.quoteShippingRate` calls Printful's `POST /shipping/rates` and takes
+the cheapest option. On any failure — no token, API error, no usable rates — it
+falls back to `FALLBACK_FLAT_SHIPPING_RATE_USD` in `convex/printful.ts` rather
+than throwing, so a Printful outage degrades the quote instead of blocking
+checkout.
+
+**That fallback is a placeholder, not a rate.** If orders are consistently
+landing on it, shipping is being mispriced. The quote returns a
+`fallbackReason` — check that first.
+
 ## HTTP API
 
 User-defined http routes are defined in the `convex/router.ts` file. We split these routes into a separate file from `convex/http.ts` to allow us to prevent the LLM from modifying the authentication routes.

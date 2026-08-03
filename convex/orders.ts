@@ -5,96 +5,10 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 const MAX_QUANTITY_PER_LINE = 25;
 
-/**
- * Create an order.
- *
- * Prices and the total are NOT accepted from the client — they are recomputed
- * here from the products table. This mutation is public by necessity (guest
- * checkout), so a client-supplied price would let anyone mint a $0.01 order,
- * and convex/stripe.ts bills straight from these stored values.
- */
-export const create = mutation({
-  args: {
-    email: v.string(),
-    items: v.array(v.object({
-      productId: v.id("products"),
-      variantId: v.number(),
-      quantity: v.number(),
-    })),
-    shippingAddress: v.object({
-      name: v.string(),
-      address1: v.string(),
-      address2: v.optional(v.string()),
-      city: v.string(),
-      state: v.string(),
-      zip: v.string(),
-      country: v.string(),
-    }),
-  },
-  handler: async (ctx, args) => {
-    if (args.items.length === 0) {
-      throw new Error("Cannot create an order with no items.");
-    }
-
-    const userId = await getAuthUserId(ctx);
-
-    const items: Array<{
-      productId: Id<"products">;
-      variantId: number;
-      quantity: number;
-      price: number;
-    }> = [];
-    let total = 0;
-
-    for (const item of args.items) {
-      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-        throw new Error("Quantity must be a positive whole number.");
-      }
-      if (item.quantity > MAX_QUANTITY_PER_LINE) {
-        throw new Error(`Quantity per item is limited to ${MAX_QUANTITY_PER_LINE}.`);
-      }
-
-      const product = await ctx.db.get(item.productId);
-      if (!product || !product.active) {
-        throw new Error("A product in your cart is no longer available.");
-      }
-
-      const variant = product.variants.find((v) => v.id === item.variantId);
-      if (!variant) {
-        throw new Error(`Unknown variant for ${product.name}.`);
-      }
-      if (!variant.available) {
-        throw new Error(
-          `${product.name} (${variant.size} / ${variant.color}) is out of stock.`
-        );
-      }
-
-      const price = variant.price > 0 ? variant.price : product.price;
-      if (!(price > 0)) {
-        throw new Error(`${product.name} is not priced and cannot be ordered.`);
-      }
-
-      items.push({
-        productId: item.productId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        price,
-      });
-      total += price * item.quantity;
-    }
-
-    return await ctx.db.insert("orders", {
-      email: args.email,
-      shippingAddress: args.shippingAddress,
-      items,
-      // Rounded to cents so the stored total matches what Stripe is charged.
-      total: Math.round(total * 100) / 100,
-      userId: userId || undefined,
-      status: "pending",
-      accessToken: crypto.randomUUID(),
-    });
-  },
-});
+/** Money is stored in dollars, so keep it to cents and away from float drift. */
+function roundCurrency(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
 
 /**
  * Can the caller read this order?
@@ -123,6 +37,110 @@ async function canReadOrder(
   const user = await ctx.db.get(userId);
   return user?.isAdmin === true;
 }
+
+/**
+ * Create an order.
+ *
+ * Prices and the total are NOT accepted from the client — they are recomputed
+ * here from the products table. This mutation is public by necessity (guest
+ * checkout), so a client-supplied price would let anyone mint a $0.01 order,
+ * and convex/stripe.ts bills straight from these stored values.
+ */
+export const create = mutation({
+  args: {
+    email: v.string(),
+    // Note: no price and no total. Both are read from the products table
+    // below, so a tampered client cannot choose what it pays.
+    items: v.array(v.object({
+      productId: v.id("products"),
+      variantId: v.number(),
+      quantity: v.number(),
+    })),
+    shippingAddress: v.object({
+      name: v.string(),
+      address1: v.string(),
+      address2: v.optional(v.string()),
+      city: v.string(),
+      state: v.string(),
+      zip: v.string(),
+      country: v.string(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    if (args.items.length === 0) {
+      throw new Error("Cannot create an order with no items.");
+    }
+
+    const userId = await getAuthUserId(ctx);
+
+    const pricedItems: Array<{
+      productId: Id<"products">;
+      variantId: number;
+      quantity: number;
+      price: number;
+    }> = [];
+    let subtotal = 0;
+
+    for (const item of args.items) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new Error(`Invalid quantity for product ${item.productId}.`);
+      }
+      if (item.quantity > MAX_QUANTITY_PER_LINE) {
+        throw new Error(
+          `Quantity per item is limited to ${MAX_QUANTITY_PER_LINE}.`
+        );
+      }
+
+      const product = await ctx.db.get(item.productId);
+      if (!product || !product.active) {
+        throw new Error("A product in this order is no longer available.");
+      }
+
+      const variant = product.variants.find((v) => v.id === item.variantId);
+      if (!variant) {
+        throw new Error(`Unknown variant for ${product.name}.`);
+      }
+      if (!variant.available) {
+        throw new Error(
+          `${product.name} (${variant.size} - ${variant.color}) is sold out.`
+        );
+      }
+
+      // The Printful sync maps an unset retail_price to 0, so an unpriced
+      // variant would otherwise create a free order.
+      const price = variant.price > 0 ? variant.price : product.price;
+      if (!(price > 0)) {
+        throw new Error(`${product.name} is not priced and cannot be ordered.`);
+      }
+
+      pricedItems.push({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        price,
+      });
+      subtotal += price * item.quantity;
+    }
+
+    subtotal = roundCurrency(subtotal);
+
+    // Shipping and tax are filled in by stripe.createCheckoutSession, which
+    // can make the outbound calls a mutation can't. Until then the order
+    // total is the subtotal.
+    return await ctx.db.insert("orders", {
+      email: args.email,
+      items: pricedItems,
+      shippingAddress: args.shippingAddress,
+      subtotal,
+      shipping: 0,
+      tax: 0,
+      total: subtotal,
+      userId: userId || undefined,
+      status: "pending",
+      accessToken: crypto.randomUUID(),
+    });
+  },
+});
 
 export const get = query({
   args: { id: v.id("orders"), token: v.optional(v.string()) },
