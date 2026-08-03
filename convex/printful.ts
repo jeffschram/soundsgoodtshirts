@@ -494,12 +494,22 @@ export const recordFulfillmentFailure = internalMutation({
     final: v.boolean(),
   },
   handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+
     await ctx.db.patch(args.orderId, {
       fulfillmentError: args.error,
       // Only a final failure changes status; a retrying order stays as-is so
       // it is not shown as failed while attempts remain.
       ...(args.final ? { status: "fulfillment_failed" } : {}),
     });
+
+    // Same alert as the webhook path — a submission that exhausted its retries
+    // is just as invisible as one Printful rejected later.
+    if (args.final && order?.fulfillmentAlertSentAt === undefined) {
+      await ctx.scheduler.runAfter(0, internal.email.sendFulfillmentAlert, {
+        orderId: args.orderId,
+      });
+    }
   },
 });
 
@@ -635,6 +645,9 @@ export const applyPrintfulUpdate = internalMutation({
     printfulOrderId: v.optional(v.number()),
     externalId: v.optional(v.string()),
     status: v.optional(v.string()),
+    // Printful's own reason string, so a failed order is not just a red badge
+    // with no explanation in /admin/orders.
+    failureReason: v.optional(v.string()),
     shipment: v.optional(
       v.object({
         carrier: v.optional(v.string()),
@@ -671,6 +684,7 @@ export const applyPrintfulUpdate = internalMutation({
 
     await ctx.db.patch(order._id, {
       ...(args.status ? { status: args.status } : {}),
+      ...(args.failureReason ? { fulfillmentError: args.failureReason } : {}),
       ...(args.shipment ? { shipment: args.shipment } : {}),
       ...(args.printfulOrderId !== undefined &&
       order.printfulOrderId === undefined
@@ -682,6 +696,17 @@ export const applyPrintfulUpdate = internalMutation({
     // shipmentEmailSentAt, since Printful redelivers webhooks.
     if (args.shipment?.trackingNumber && order.shipmentEmailSentAt === undefined) {
       await ctx.scheduler.runAfter(0, internal.email.sendShipmentNotification, {
+        orderId: order._id,
+      });
+    }
+
+    // A paid order that will never be produced needs a human, now. Otherwise
+    // it sits in /admin/orders until someone happens to look.
+    if (
+      args.status === "fulfillment_failed" &&
+      order.fulfillmentAlertSentAt === undefined
+    ) {
+      await ctx.scheduler.runAfter(0, internal.email.sendFulfillmentAlert, {
         orderId: order._id,
       });
     }

@@ -214,6 +214,7 @@ http.route({
 
     let status: string | undefined;
     let shipment: Record<string, unknown> | undefined;
+    let failureReason: string | undefined;
 
     switch (event?.type) {
       case "package_shipped": {
@@ -231,6 +232,11 @@ http.route({
       }
       case "order_failed":
         status = "fulfillment_failed";
+        // Printful puts the human-readable cause on the order itself.
+        failureReason =
+          (typeof order?.error === "string" && order.error) ||
+          (typeof event.data?.reason === "string" && event.data.reason) ||
+          "Printful reported the order as failed with no reason given.";
         break;
       case "order_canceled":
         status = "cancelled";
@@ -254,6 +260,7 @@ http.route({
       printfulOrderId,
       externalId,
       status,
+      failureReason,
       shipment: shipment as any,
     });
 
