@@ -1,80 +1,29 @@
+import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const FOOTER_SECTIONS = [
-  {
-    heading: "Shop",
-    links: [
-      { to: "/shop", label: "All Products" },
-      { to: "/cart", label: "Cart" },
-    ],
-  },
-  {
-    heading: "Company",
-    links: [
-      { to: "/about", label: "About" },
-      { to: "/contact", label: "Contact" },
-    ],
-  },
-];
 
 export default function Footer() {
   return (
-    <footer className="mt-16 border-t bg-muted/40">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-5">
-        <div className="md:col-span-2">
-          <h3 className="text-base font-bold tracking-tight">Sounds Good T-Shirts</h3>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            Simple t-shirts for simple people. Honest designs, quality shirts, no
-            nonsense.
-          </p>
-        </div>
-
-        {FOOTER_SECTIONS.map((section) => (
-          <div key={section.heading}>
-            <h4 className="text-sm font-semibold">{section.heading}</h4>
-            <nav className="mt-3 flex flex-col gap-2">
-              {section.links.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        ))}
-
-        <div>
-          <h4 className="text-sm font-semibold">Support</h4>
-          <nav className="mt-3 flex flex-col gap-2">
-            <Link
-              to="/shipping-policy"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Shipping Policy
-            </Link>
-            <Link
-              to="/returns-policy"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Returns Policy
-            </Link>
-            <a
-              href="mailto:hello@soundsgoodtshirts.com"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Email Us
-            </a>
-          </nav>
+    <footer className="site-footer">
+      <div className="site-footer__top">
+        <div className="footer-wordmark">SOUNDS<br /><span>GOOD!</span></div>
+        <div className="footer-newsletter">
+          <p>New shirts, old jokes, occasional emails.</p>
+          <form onSubmit={(event) => event.preventDefault()}>
+            <label className="sr-only" htmlFor="footer-email">Email address</label>
+            <input id="footer-email" type="email" placeholder="your@email.com" />
+            <button type="submit" aria-label="Join the email list"><ArrowUpRight /></button>
+          </form>
         </div>
       </div>
-
-      <div className="border-t py-6">
-        <p className="text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Sounds Good T-Shirts. All rights reserved.
-        </p>
+      <div className="site-footer__bottom">
+        <div className="footer-links">
+          <Link to="/shop">Shop all</Link>
+          <Link to="/about">About</Link>
+          <Link to="/contact">Contact</Link>
+          <Link to="/shipping-policy">Shipping</Link>
+          <Link to="/returns-policy">Returns</Link>
+        </div>
+        <p>© {new Date().getFullYear()} Sounds Good T-Shirts.<br />Made for people with torsos.</p>
       </div>
     </footer>
   );
