@@ -678,6 +678,14 @@ export const applyPrintfulUpdate = internalMutation({
         : {}),
     });
 
+    // Tracking just arrived — tell the customer. Guarded inside the action on
+    // shipmentEmailSentAt, since Printful redelivers webhooks.
+    if (args.shipment?.trackingNumber && order.shipmentEmailSentAt === undefined) {
+      await ctx.scheduler.runAfter(0, internal.email.sendShipmentNotification, {
+        orderId: order._id,
+      });
+    }
+
     return { matched: true };
   },
 });
