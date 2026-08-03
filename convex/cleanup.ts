@@ -1,4 +1,5 @@
 import { internalMutation, internalQuery } from "./_generated/server";
+import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
 
 /**
@@ -129,5 +130,134 @@ export const deleteTestOrders = internalMutation({
     }
 
     return { deleted: deleted.length };
+  },
+});
+
+// ---- Printful store migration (Squarespace-connected -> manual/API store) ----
+
+/**
+ * Snapshot the hand-curated fields before the store swap.
+ *
+ * A sync against the new store inserts NEW rows (upsertProduct matches on
+ * printfulId, and the new store issues new ids), so everything curated stays
+ * behind on the old rows. Keyed by slug, which is stable — upsertProduct never
+ * rewrites an existing product's slug.
+ */
+export const exportCuration = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+    return products
+      .filter((product) => product.printfulId !== undefined)
+      .map((product) => ({
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
+        customImages: product.customImages ?? [],
+        featured: product.featured,
+        categories: product.categories,
+        tags: product.tags ?? [],
+      }));
+  },
+});
+
+/**
+ * Free the slugs and retire the old catalog without breaking order history.
+ *
+ * Renames rather than deletes: orders reference productId, and deleting the
+ * rows would make historical orders render "Unknown Product" — the exact bug
+ * archive-instead-of-delete was introduced to prevent.
+ */
+export const archiveLegacyProducts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db.query("products").collect();
+
+    let archived = 0;
+    for (const product of products) {
+      if (product.printfulId === undefined) continue;
+      if (product.slug.startsWith("archived-")) continue;
+
+      await ctx.db.patch(product._id, {
+        slug: `archived-${product.slug}-${product.printfulId}`,
+        active: false,
+        featured: false,
+      });
+      archived++;
+    }
+
+    return { archived };
+  },
+});
+
+/**
+ * Re-apply curation to the freshly synced products, matching on the original
+ * slug. Clears customImages from the archived row afterwards so exactly one
+ * product owns each storage file — otherwise hard-deleting the old row later
+ * would delete files the live product is still using.
+ */
+export const applyCuration = internalMutation({
+  args: {
+    entries: v.array(
+      v.object({
+        slug: v.string(),
+        description: v.optional(v.string()),
+        customImages: v.array(v.id("_storage")),
+        featured: v.boolean(),
+        categories: v.array(v.string()),
+        tags: v.array(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const applied: string[] = [];
+    const skipped: string[] = [];
+
+    for (const entry of args.entries) {
+      const target = await ctx.db
+        .query("products")
+        .withIndex("by_slug", (q) => q.eq("slug", entry.slug))
+        .unique();
+
+      if (!target || target.printfulId === undefined) {
+        skipped.push(entry.slug);
+        continue;
+      }
+
+      await ctx.db.patch(target._id, {
+        ...(entry.description ? { description: entry.description } : {}),
+        ...(entry.customImages.length
+          ? { customImages: entry.customImages }
+          : {}),
+        featured: entry.featured,
+        ...(entry.categories.length ? { categories: entry.categories } : {}),
+        ...(entry.tags.length ? { tags: entry.tags } : {}),
+      });
+
+      // Hand off ownership of the storage files.
+      if (entry.customImages.length) {
+        const legacy = (await ctx.db.query("products").collect()).filter(
+          (product) =>
+            product.slug.startsWith(`archived-${entry.slug}-`) &&
+            (product.customImages ?? []).length > 0
+        );
+        for (const row of legacy) {
+          await ctx.db.patch(row._id, { customImages: [] });
+        }
+      }
+
+      applied.push(entry.slug);
+    }
+
+    return { applied, skipped };
+  },
+});
+
+export const clearAllCarts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const items = await ctx.db.query("cartItems").collect();
+    for (const item of items) await ctx.db.delete(item._id);
+    return { cleared: items.length };
   },
 });
