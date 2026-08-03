@@ -15,7 +15,12 @@ const applicationTables = {
     // every run.
     garmentDescription: v.optional(v.string()),
     price: v.number(),
+    // Printful's mockups. Sync-owned: overwritten wholesale on every run.
     images: v.array(v.string()),
+    // Hand-uploaded photography, held as Convex storage ids rather than URLs
+    // so the files stay deletable and the URLs can never go stale. Never an
+    // argument of printful.upsertProduct, so the sync cannot reach it.
+    customImages: v.optional(v.array(v.id("_storage"))),
     categories: v.array(v.string()),
     tags: v.optional(v.array(v.string())),
     featured: v.boolean(),
