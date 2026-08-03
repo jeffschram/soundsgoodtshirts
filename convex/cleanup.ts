@@ -261,3 +261,49 @@ export const clearAllCarts = internalMutation({
     return { cleared: items.length };
   },
 });
+
+/**
+ * One-shot prune after seeding production from a dev snapshot.
+ *
+ * The snapshot carries products, storage files and the admin user — which is
+ * the point — but also every test order and sandbox Stripe event. Those are not
+ * harmless: admin.dashboardStats sums `total` across ALL orders, so production
+ * would open showing fabricated revenue, and one test order carries a fake
+ * tracking number. Archived products only existed to keep that test history
+ * readable, so they go with it.
+ *
+ * Deliberately leaves storage files alone: the live products still reference
+ * them, and the archived rows had customImages cleared during the Printful
+ * store migration.
+ */
+export const resetForProduction = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const orders = await ctx.db.query("orders").collect();
+    for (const order of orders) await ctx.db.delete(order._id);
+
+    const events = await ctx.db.query("stripeEvents").collect();
+    for (const event of events) await ctx.db.delete(event._id);
+
+    const carts = await ctx.db.query("cartItems").collect();
+    for (const item of carts) await ctx.db.delete(item._id);
+
+    const products = await ctx.db.query("products").collect();
+    let archivedRemoved = 0;
+    for (const product of products) {
+      if (!product.slug.startsWith("archived-")) continue;
+      // Guard: never orphan a storage file that is still referenced.
+      if ((product.customImages ?? []).length > 0) continue;
+      await ctx.db.delete(product._id);
+      archivedRemoved++;
+    }
+
+    return {
+      ordersRemoved: orders.length,
+      stripeEventsRemoved: events.length,
+      cartItemsRemoved: carts.length,
+      archivedProductsRemoved: archivedRemoved,
+      productsRemaining: products.length - archivedRemoved,
+    };
+  },
+});
