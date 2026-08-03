@@ -1,6 +1,15 @@
-import { useState } from "react";
-import type { Doc } from "../../../convex/_generated/dataModel";
-import { AlertTriangle, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -147,6 +156,170 @@ function toPayload(draft: ProductDraft): ProductFormPayload {
     active: draft.active,
     variants,
   };
+}
+
+
+/** Images larger than this are almost always an unresized phone photo. */
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Hand-uploaded product photography.
+ *
+ * Separate from the Printful mockup URLs above: these live in Convex file
+ * storage, the sync cannot touch them, and they render ahead of the mockups on
+ * the product page. Only available on a saved product, since the files attach
+ * to a product id.
+ */
+function CustomImageUploader({ productId }: { productId: Id<"products"> }) {
+  const images = useQuery(api.admin.getProductCustomImages, { id: productId });
+  const generateUploadUrl = useMutation(api.admin.generateProductImageUploadUrl);
+  const addImage = useMutation(api.admin.addProductImage);
+  const removeImage = useMutation(api.admin.removeProductImage);
+  const reorderImages = useMutation(api.admin.reorderProductImages);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} is not an image.`);
+          continue;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          toast.error(
+            `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB — resize it under 5MB first.`,
+          );
+          continue;
+        }
+
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!response.ok) {
+          throw new Error(`Upload failed for ${file.name}`);
+        }
+
+        const { storageId } = (await response.json()) as {
+          storageId: Id<"_storage">;
+        };
+        await addImage({ id: productId, storageId });
+      }
+      toast.success("Images uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const move = async (index: number, direction: -1 | 1) => {
+    if (!images) return;
+    const next = images.map((image) => image.storageId);
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    await reorderImages({ id: productId, storageIds: next });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Custom images</h3>
+          <p className="text-sm text-muted-foreground">
+            Your own photography. Shown before the Printful mockups, and never
+            touched by a sync. The first image leads the gallery.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload />
+          {uploading ? "Uploading…" : "Upload images"}
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => void handleFiles(event.target.files)}
+        />
+      </div>
+
+      {images === undefined ? (
+        <p className="text-sm text-muted-foreground">Loading images…</p>
+      ) : images.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          No custom images yet — this product shows Printful mockups only.
+        </p>
+      ) : (
+        <ul className="flex flex-wrap gap-3">
+          {images.map((image, index) => (
+            <li key={image.storageId} className="w-28 space-y-1">
+              <div className="overflow-hidden rounded-md border bg-muted">
+                <img
+                  src={image.url}
+                  alt={`Custom image ${index + 1}`}
+                  className="aspect-square size-full object-cover"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Move image ${index + 1} earlier`}
+                  disabled={index === 0}
+                  onClick={() => void move(index, -1)}
+                >
+                  <ArrowLeft />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Move image ${index + 1} later`}
+                  disabled={index === images.length - 1}
+                  onClick={() => void move(index, 1)}
+                >
+                  <ArrowRight />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove image ${index + 1}`}
+                  onClick={() => {
+                    if (window.confirm("Delete this image permanently?")) {
+                      void removeImage({
+                        id: productId,
+                        storageId: image.storageId,
+                      });
+                    }
+                  }}
+                >
+                  <X className="text-destructive" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function ProductEditor({
@@ -339,6 +512,9 @@ export function ProductEditor({
               />
             </Field>
           </div>
+
+          {/* Only on a saved product — uploads attach to a product id. */}
+          {product ? <CustomImageUploader productId={product._id} /> : null}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">

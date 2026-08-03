@@ -62,7 +62,12 @@ export default function ProductPage() {
     (v) => v.id === selectedVariant,
   );
 
-  const images = product.images ?? [];
+  // Hand-uploaded photography leads; the Printful mockups sit behind it. Both
+  // are already resolved to URLs server-side.
+  const images = [
+    ...(product.customImageUrls ?? []),
+    ...(product.images ?? []),
+  ];
   // Clamp rather than trust state: the effect that resets the index runs after
   // render, so a shorter image array would briefly index out of bounds.
   const activeImage = Math.min(imageIndex, Math.max(0, images.length - 1));

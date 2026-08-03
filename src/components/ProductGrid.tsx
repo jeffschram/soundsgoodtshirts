@@ -26,7 +26,9 @@ export default function ProductGrid({ products }: ProductGridProps) {
           <Card className="h-full overflow-hidden py-0 transition-shadow group-hover:shadow-md">
             <div className="aspect-square overflow-hidden bg-muted">
               <img
-                src={product.images[0]}
+                // A custom photo wins over the Printful mockup. products.list
+                // resolves only the first one, which is all the grid shows.
+                src={product.customImageUrls?.[0] ?? product.images[0]}
                 alt={product.name}
                 className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
               />

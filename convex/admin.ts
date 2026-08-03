@@ -265,6 +265,12 @@ export const hardDeleteProduct = mutation({
       throw new Error("This product is still in a cart. Archive it instead.");
     }
 
+    // Delete the uploaded files too, or they are orphaned in storage with
+    // nothing left pointing at them.
+    for (const storageId of product.customImages ?? []) {
+      await ctx.storage.delete(storageId);
+    }
+
     await ctx.db.delete(args.id);
     return null;
   },
@@ -298,6 +304,122 @@ export const syncPrintfulProducts = action({
       throw new Error("Not authorized");
     }
     return await ctx.runAction(internal.printful.syncProducts, {});
+  },
+});
+
+// ---- Custom product images ----
+
+/**
+ * Hand-uploaded product photography, stored in Convex file storage.
+ *
+ * Deliberately separate from `images`, which the Printful sync overwrites
+ * wholesale and which `updateProduct` refuses to edit on a synced product.
+ * These are never an argument of printful.upsertProduct, so the sync cannot
+ * reach them.
+ */
+/**
+ * Resolved custom images for one product, as (storageId, url) pairs.
+ *
+ * Scoped to a single product and only queried while the editor is open —
+ * resolving URLs for every product on the list view would be a lookup per
+ * image per render.
+ */
+export const getProductCustomImages = query({
+  args: { id: v.id("products") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      return [];
+    }
+
+    const resolved = await Promise.all(
+      (product.customImages ?? []).map(async (storageId) => ({
+        storageId,
+        url: await ctx.storage.getUrl(storageId),
+      })),
+    );
+
+    // A null url means the file is gone; drop it rather than rendering a break.
+    return resolved.filter(
+      (image): image is { storageId: typeof image.storageId; url: string } =>
+        image.url !== null,
+    );
+  },
+});
+
+export const generateProductImageUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const addProductImage = mutation({
+  args: { id: v.id("products"), storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Product not found.");
+    }
+
+    const existing = product.customImages ?? [];
+    if (existing.includes(args.storageId)) {
+      return null;
+    }
+
+    await ctx.db.patch(args.id, { customImages: [...existing, args.storageId] });
+    return null;
+  },
+});
+
+export const removeProductImage = mutation({
+  args: { id: v.id("products"), storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Product not found.");
+    }
+
+    await ctx.db.patch(args.id, {
+      customImages: (product.customImages ?? []).filter(
+        (storageId) => storageId !== args.storageId,
+      ),
+    });
+    // Delete the file itself, not just the reference — an orphaned blob is
+    // billed forever and can never be found again.
+    await ctx.storage.delete(args.storageId);
+    return null;
+  },
+});
+
+export const reorderProductImages = mutation({
+  args: { id: v.id("products"), storageIds: v.array(v.id("_storage")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Product not found.");
+    }
+
+    const existing = product.customImages ?? [];
+    const sameSet =
+      existing.length === args.storageIds.length &&
+      existing.every((storageId) => args.storageIds.includes(storageId));
+    if (!sameSet) {
+      // Reordering must not be a backdoor for adding or dropping images.
+      throw new Error("Reorder must contain exactly the existing images.");
+    }
+
+    await ctx.db.patch(args.id, { customImages: args.storageIds });
+    return null;
   },
 });
 

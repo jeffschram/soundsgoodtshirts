@@ -41,7 +41,18 @@ export const list = query({
       );
     }
 
-    return products;
+    return await Promise.all(
+      products.map(async (product) => ({
+        ...product,
+        // Only the first: the shop grid renders one thumbnail per product, and
+        // resolving every image here is a URL lookup per image per query.
+        customImageUrls: product.customImages?.length
+          ? [await ctx.storage.getUrl(product.customImages[0])].filter(
+              (url): url is string => url !== null
+            )
+          : [],
+      }))
+    );
   },
 });
 
@@ -55,10 +66,25 @@ export const get = query({
 export const getBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const product = await ctx.db
       .query("products")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
+
+    if (!product) {
+      return null;
+    }
+
+    // Storage ids are not URLs — resolve them here so the client never has to
+    // know the difference. Returned under a distinct key so an id and a URL
+    // cannot be confused at the call site.
+    const customImageUrls = (
+      await Promise.all(
+        (product.customImages ?? []).map((id) => ctx.storage.getUrl(id))
+      )
+    ).filter((url): url is string => url !== null);
+
+    return { ...product, customImageUrls };
   },
 });
 
