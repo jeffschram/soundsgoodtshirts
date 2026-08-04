@@ -36,7 +36,13 @@ export function CartDrawer() {
         className="gap-0 p-0"
       >
         <SheetHeader>
-          <h2 className="text-3xl font-bold tracking-tight">YOUR CART</h2>
+          {/* SheetTitle rather than a plain h2: radix only sets
+              aria-labelledby when a Dialog.Title is present, so without it the
+              drawer announces as an unnamed dialog. The classes still win —
+              cn() runs them through tailwind-merge. */}
+          <SheetTitle className="text-3xl font-bold tracking-tight">
+            YOUR CART
+          </SheetTitle>
           <SheetDescription>
             {cartTotal.itemCount === 0
               ? "Nothing in here yet."
