@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -11,6 +11,8 @@ interface CartContextType {
   removeFromCart: (itemId: Id<"cartItems">) => void;
   clearCart: () => void;
   sessionId: string;
+  cartOpen: boolean;
+  setCartOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // signing in as a different user still merges.
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const mergedForUserRef = useRef<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
   useEffect(() => {
     if (!loggedInUser || loggedInUser.isAnonymous) return;
@@ -44,6 +47,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (productId: Id<"products">, variantId: number, quantity: number) => {
     addToCartMutation({ sessionId, productId, variantId, quantity });
+    // Adding to cart previously gave no feedback beyond the header count
+    // ticking over. Opening the drawer is the confirmation.
+    setCartOpen(true);
   };
 
   const updateQuantity = (itemId: Id<"cartItems">, quantity: number) => {
@@ -67,6 +73,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeFromCart,
       clearCart,
       sessionId,
+      cartOpen,
+      setCartOpen,
     }}>
       {children}
     </CartContext.Provider>

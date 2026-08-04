@@ -16,7 +16,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function Header() {
-  const { cartTotal } = useCart();
+  const { cartTotal, setCartOpen } = useCart();
   const user = useQuery(api.auth.loggedInUser);
 
   return (
@@ -51,15 +51,18 @@ export default function Header() {
           >
             {user ? "Account" : "Sign in"}
           </Link>
-          <Link
-            to="/cart"
+          {/* Opens the drawer rather than navigating — /cart still exists
+              and is reachable from inside it. */}
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
             className="cart-link"
-            aria-label={`Cart with ${cartTotal.itemCount} items`}
+            aria-label={`Open cart, ${cartTotal.itemCount} item${cartTotal.itemCount === 1 ? "" : "s"}`}
           >
             <ShoppingBag size={20} strokeWidth={2.5} />
             <span>Bag</span>
             <b>{cartTotal.itemCount}</b>
-          </Link>
+          </button>
           <button className="mobile-menu" aria-label="Show menu">
             <Menu />
           </button>

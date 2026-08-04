@@ -54,9 +54,6 @@ body {
   color: var(--ink);
   overflow-x: hidden;
 }
-a {
-  color: inherit;
-}
 button,
 input {
   font: inherit;
@@ -142,6 +139,9 @@ input {
   text-decoration-thickness: 2px;
 }
 .cart-link {
+  /* Now rendered as a <button> that opens the cart drawer, so it needs the
+     pointer an <a href> got for free. */
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 7px;
