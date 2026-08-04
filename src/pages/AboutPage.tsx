@@ -35,29 +35,28 @@ export default function AboutPage() {
       </h1>
 
       <div className="mt-10 space-y-10">
-        {SECTIONS.map((section) => (
-          <section key={section.heading}>
-            <h2 className="text-xl font-semibold tracking-tight">
-              {section.heading}
-            </h2>
-            <p className="mt-3 leading-relaxed text-muted-foreground">
-              {section.body}
-            </p>
-            {section.links && (
-              <div className="mt-3 flex flex-wrap gap-4">
-                {section.links.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className="text-sm font-medium underline underline-offset-4"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-        ))}
+        <h2 className="text-xl font-semibold tracking-tight">
+          Simple T-Shirts for (from) Simple People
+        </h2>
+        <p className="text-lg text-gray-700">
+          Jeff and Jon showed up to rehearsal with the noble intention of
+          improving as musicians. Instead, they got a little too high. At some
+          point Jon suggested that shirts should just say random things people
+          enjoy thinking about, like “I Love Spaghetti.” Jeff considered this
+          carefully, nodded like a seasoned entrepreneur, and said, “Sounds
+          good.”
+        </p>
+        <p className="text-lg text-gray-700">
+          What followed was a highly unproductive rehearsal session. Their
+          phones quickly filled with phrases like “Banana for Scale,” “I feel
+          like Bob Vila,” and “People are Ants.” Each idea was subjected to a
+          rigorous approval process: “Yeah… sounds good.”
+        </p>
+        <p className="text-lg text-gray-700">
+          The band did not improve that day, but a business was born. Sounds
+          Good T-Shirts now proudly continues the tradition Jeff and Jon
+          started: taking extremely dumb ideas very seriously. Sounds good. 👂👍
+        </p>
       </div>
     </div>
   );
