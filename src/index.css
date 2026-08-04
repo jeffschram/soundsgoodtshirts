@@ -54,9 +54,6 @@ body {
   color: var(--ink);
   overflow-x: hidden;
 }
-a {
-  color: inherit;
-}
 button,
 input {
   font: inherit;

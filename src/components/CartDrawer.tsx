@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetClose,
@@ -37,7 +36,7 @@ export function CartDrawer() {
         className="gap-0 p-0"
       >
         <SheetHeader>
-          <SheetTitle>Your cart</SheetTitle>
+          <h2 className="text-3xl font-bold tracking-tight">YOUR CART</h2>
           <SheetDescription>
             {cartTotal.itemCount === 0
               ? "Nothing in here yet."
@@ -139,7 +138,6 @@ export function CartDrawer() {
 
         {cartItems.length > 0 && (
           <SheetFooter>
-            <Separator className="mb-2" />
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium tabular-nums">
