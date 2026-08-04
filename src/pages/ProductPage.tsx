@@ -12,9 +12,24 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+/**
+ * Wearable order. Alphabetically "2XL" sorts before "S", which reads as broken
+ * on a size picker. Unknown sizes fall to the end rather than being dropped.
+ */
+const SIZE_ORDER = [
+  "XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "4XL", "5XL",
+  "One Size",
+];
+
+function sizeRank(size: string): number {
+  const index = SIZE_ORDER.indexOf(size);
+  return index === -1 ? SIZE_ORDER.length : index;
+}
+
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showGarmentInfo, setShowGarmentInfo] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -23,6 +38,8 @@ export default function ProductPage() {
   // would show the previous product's image or overrun a shorter array.
   useEffect(() => {
     setImageIndex(0);
+    setSelectedSize(null);
+    setSelectedColor(null);
   }, [slug]);
 
   const product = useQuery(api.products.getBySlug, {
@@ -52,15 +69,53 @@ export default function ProductPage() {
     );
   }
 
-  const handleAddToCart = () => {
-    if (selectedVariant !== null) {
-      addToCart(product._id, selectedVariant, quantity);
+  // Colours in the order Printful returned them; sizes in wearable order,
+  // because alphabetically 2XL sorts before S.
+  const colors = Array.from(new Set(product.variants.map((v) => v.color)));
+  const sizes = Array.from(new Set(product.variants.map((v) => v.size))).sort(
+    (a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b),
+  );
+
+  // A product with one colour has nothing to choose, so it is shown as a label
+  // and selected implicitly.
+  const onlyColor = colors.length === 1 ? colors[0] : null;
+  const activeColor = onlyColor ?? selectedColor;
+
+  const variantFor = (size: string, color: string | null) =>
+    color === null
+      ? undefined
+      : product.variants.find((v) => v.size === size && v.color === color);
+
+  // The two pickers have to know about each other: Printful products are often
+  // sparse, so a size can exist in one colour and not another, and any
+  // combination can be individually sold out.
+  const isSizeSelectable = (size: string) =>
+    activeColor
+      ? (variantFor(size, activeColor)?.available ?? false)
+      : product.variants.some((v) => v.size === size && v.available);
+
+  const isColorSelectable = (color: string) =>
+    selectedSize
+      ? (variantFor(selectedSize, color)?.available ?? false)
+      : product.variants.some((v) => v.color === color && v.available);
+
+  const chooseColor = (color: string) => {
+    setSelectedColor(color);
+    // Drop a size that this colour does not stock, rather than leaving a
+    // selection that maps to no variant.
+    if (selectedSize && !variantFor(selectedSize, color)?.available) {
+      setSelectedSize(null);
     }
   };
 
-  const selectedVariantData = product.variants.find(
-    (v) => v.id === selectedVariant,
-  );
+  const selectedVariantData =
+    selectedSize && activeColor ? variantFor(selectedSize, activeColor) : undefined;
+
+  const handleAddToCart = () => {
+    if (selectedVariantData) {
+      addToCart(product._id, selectedVariantData.id, quantity);
+    }
+  };
 
   // Hand-uploaded photography leads; the Printful mockups sit behind it. Both
   // are already resolved to URLs server-side.
@@ -169,23 +224,69 @@ export default function ProductPage() {
           <Separator className="my-6" />
 
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold">Size &amp; Color</h2>
-            <div className="flex flex-wrap gap-2">
-              {product.variants.map((variant) => (
-                <Button
-                  key={variant.id}
-                  size="sm"
-                  variant={
-                    selectedVariant === variant.id ? "default" : "outline"
-                  }
-                  disabled={!variant.available}
-                  onClick={() => setSelectedVariant(variant.id)}
-                  className={cn(!variant.available && "line-through")}
-                >
-                  {variant.size} - {variant.color}
-                </Button>
-              ))}
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold">
+                Size
+                {selectedSize ? (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {selectedSize}
+                  </span>
+                ) : null}
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((size) => {
+                  const selectable = isSizeSelectable(size);
+                  return (
+                    <Button
+                      key={size}
+                      size="sm"
+                      variant={selectedSize === size ? "default" : "outline"}
+                      disabled={!selectable}
+                      aria-pressed={selectedSize === size}
+                      onClick={() => setSelectedSize(size)}
+                      className={cn("min-w-12", !selectable && "line-through")}
+                    >
+                      {size}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold">
+                Color
+                {activeColor ? (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {activeColor}
+                  </span>
+                ) : null}
+              </h2>
+              {onlyColor ? (
+                // Nothing to choose — show it as a fact, not a control.
+                <Badge variant="secondary">{onlyColor}</Badge>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {colors.map((color) => {
+                    const selectable = isColorSelectable(color);
+                    return (
+                      <Button
+                        key={color}
+                        size="sm"
+                        variant={selectedColor === color ? "default" : "outline"}
+                        disabled={!selectable}
+                        aria-pressed={selectedColor === color}
+                        onClick={() => chooseColor(color)}
+                        className={cn(!selectable && "line-through")}
+                      >
+                        {color}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {product.variants.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 No variants available for this product.
@@ -211,9 +312,13 @@ export default function ProductPage() {
             size="lg"
             className="mt-6 w-full sm:w-auto"
             onClick={handleAddToCart}
-            disabled={selectedVariant === null}
+            disabled={!selectedVariantData}
           >
-            {selectedVariant === null ? "Select a size to continue" : "Add to Cart"}
+            {selectedVariantData
+              ? "Add to Cart"
+              : !selectedSize
+                ? "Select a size to continue"
+                : "Select a color to continue"}
           </Button>
 
           <Separator className="my-6" />
