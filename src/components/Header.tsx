@@ -21,29 +21,48 @@ export default function Header() {
 
   return (
     <>
-      <div className="announcement">FREE SHIPPING ON ORDERS OVER $60 <span>✦</span> LOOK GOOD, FEEL GOOD, SOUNDS GOOD</div>
+      {/* <div className="announcement">FREE SHIPPING ON ORDERS OVER $60 <span>✦</span> LOOK GOOD, FEEL GOOD, SOUNDS GOOD</div> */}
       <header className="site-header">
-        <Link to="/" className="wordmark" aria-label="Sounds Good T-Shirts home">
+        <Link
+          to="/"
+          className="wordmark"
+          aria-label="Sounds Good T-Shirts home"
+        >
           SOUNDS<span>GOOD!</span>
         </Link>
 
         <nav className="site-nav" aria-label="Main navigation">
           {NAV_LINKS.map((link) => (
-            <NavLink key={link.to} to={link.to} className={navLinkClass}>{link.label}</NavLink>
+            <NavLink key={link.to} to={link.to} className={navLinkClass}>
+              {link.label}
+            </NavLink>
           ))}
         </nav>
 
         <div className="header-actions">
-          {user?.isAdmin && <Link to="/admin" className="header-text-link">Admin</Link>}
-          <Link to={user ? "/my-account" : "/sign-in"} className="header-text-link">
+          {user?.isAdmin && (
+            <Link to="/admin" className="header-text-link">
+              Admin
+            </Link>
+          )}
+          <Link
+            to={user ? "/my-account" : "/sign-in"}
+            className="header-text-link"
+          >
             {user ? "Account" : "Sign in"}
           </Link>
-          <Link to="/cart" className="cart-link" aria-label={`Cart with ${cartTotal.itemCount} items`}>
+          <Link
+            to="/cart"
+            className="cart-link"
+            aria-label={`Cart with ${cartTotal.itemCount} items`}
+          >
             <ShoppingBag size={20} strokeWidth={2.5} />
             <span>Bag</span>
             <b>{cartTotal.itemCount}</b>
           </Link>
-          <button className="mobile-menu" aria-label="Show menu"><Menu /></button>
+          <button className="mobile-menu" aria-label="Show menu">
+            <Menu />
+          </button>
         </div>
       </header>
     </>
