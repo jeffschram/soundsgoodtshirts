@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { CartDrawer } from "./components/CartDrawer";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import HomePage from "./pages/HomePage";
@@ -54,6 +55,7 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <CartDrawer />
           <Toaster />
         </div>
       </Router>
