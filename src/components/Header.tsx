@@ -83,7 +83,7 @@ export default function Header() {
                 className="mobile-menu"
                 aria-label="Open menu"
               >
-                <Menu />
+                <Menu size={20} strokeWidth={2.5} />
               </button>
             </SheetTrigger>
 

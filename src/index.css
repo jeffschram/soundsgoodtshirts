@@ -171,10 +171,24 @@ input {
   color: white;
 }
 .mobile-menu {
+  /* Same pill language as .cart-link — cream fill, ink border, hard offset
+     shadow — but icon-only and circular. A labelled version would sit ~95px
+     wide next to the ~105px cart, which crowds the wordmark on a 375px phone. */
   display: none;
-  border: 0;
-  background: transparent;
-  padding: 8px;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+}
+.mobile-menu:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 .campaign-hero {
@@ -818,9 +832,7 @@ main > div:not(.home-page) h1 {
     /* Below 900px .site-nav and .header-text-link are hidden, so this is the
        only route to navigation, sign-in and admin. It was display:none here
        AND at base, which left mobile users with no menu at all. */
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
+    display: grid;
   }
   .campaign-hero {
     min-height: 710px;
