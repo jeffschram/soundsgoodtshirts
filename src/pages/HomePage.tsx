@@ -2,7 +2,10 @@ import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import ProductGrid from "@/components/ProductGrid";
+import ProductGrid, {
+  EMPTY_STATE_CLASS,
+  PRODUCT_GRID_CLASS,
+} from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const CONCEPTS = [
@@ -106,7 +109,7 @@ export default function HomePage() {
         </div>
 
         {products === undefined ? (
-          <div className="product-grid product-grid--loading">
+          <div className={PRODUCT_GRID_CLASS}>
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="aspect-square w-full rounded-none" />
             ))}
@@ -114,7 +117,7 @@ export default function HomePage() {
         ) : products.length > 0 ? (
           <ProductGrid products={products} />
         ) : (
-          <p className="empty-state">
+          <p className={EMPTY_STATE_CLASS}>
             The shirts are backstage getting ready. Check back soon.
           </p>
         )}
