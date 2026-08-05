@@ -644,80 +644,6 @@
   transform: rotate(-5deg) scale(1.05);
 }
 
-.site-footer {
-  margin-top: 0;
-  color: var(--cream);
-  background: var(--ink);
-}
-.site-footer__top {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 70px;
-  align-items: end;
-  padding: clamp(60px, 8vw, 120px) clamp(20px, 6vw, 90px);
-  border-bottom: 1px solid #4a4942;
-}
-.footer-wordmark {
-  font-family: Impact, sans-serif;
-  font-size: clamp(80px, 15vw, 240px);
-  line-height: 0.7;
-  letter-spacing: -0.055em;
-}
-.footer-wordmark span {
-  color: var(--yellow);
-}
-.footer-newsletter p {
-  max-width: 390px;
-  font-family: var(--font-serif);
-  font-size: clamp(20px, 2.4vw, 32px);
-  font-style: italic;
-}
-.footer-newsletter form {
-  display: flex;
-  border-bottom: 2px solid var(--cream);
-}
-.footer-newsletter input {
-  width: 100%;
-  padding: 16px 0;
-  color: var(--cream);
-  background: transparent;
-  border: 0;
-  outline: 0;
-}
-.footer-newsletter button {
-  color: var(--yellow);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-.site-footer__bottom {
-  display: flex;
-  justify-content: space-between;
-  gap: 40px;
-  padding: 32px clamp(20px, 6vw, 90px) 48px;
-}
-.footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 24px;
-}
-.footer-links a {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  text-decoration: none;
-}
-.footer-links a:hover {
-  color: var(--yellow);
-}
-.site-footer__bottom p {
-  margin: 0;
-  color: #aaa79e;
-  font-size: 11px;
-  line-height: 1.5;
-  text-align: right;
-}
-
 /* Keep the rest of the store crisp and readable while sharing the new brand. */
 main > div:not(.home-page) {
   background: var(--cream);
@@ -728,17 +654,7 @@ main > div:not(.home-page) h1 {
   text-transform: uppercase;
   letter-spacing: -0.035em;
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+
 
 @media (max-width: 900px) {
   .campaign-hero {
@@ -854,16 +770,6 @@ main > div:not(.home-page) h1 {
   }
   .round-button {
     align-self: flex-end;
-  }
-  .site-footer__top {
-    grid-template-columns: 1fr;
-  }
-  .site-footer__bottom {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .site-footer__bottom p {
-    text-align: left;
   }
 }
 
