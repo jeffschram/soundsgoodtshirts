@@ -44,6 +44,9 @@
   --color-coral: var(--coral);
   --color-blue: var(--blue);
   --color-pink: var(--pink);
+  /* The @keyframes stay below — Tailwind v4 registers the animation here and
+     motion-reduce:animate-none replaces the old prefers-reduced-motion rule. */
+  --animate-ticker: ticker 24s linear infinite;
 }
 
 :root {
@@ -111,166 +114,6 @@
   margin: 0 14px;
 }
 
-.campaign-hero {
-  position: relative;
-  min-height: min(790px, calc(100vh - 104px));
-  overflow: hidden;
-  border-bottom: 2px solid var(--ink);
-  background: var(--yellow);
-}
-.campaign-hero__image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-.campaign-hero__wash {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(247, 230, 0, 0.8) 0%,
-    rgba(247, 230, 0, 0.25) 40%,
-    transparent 66%
-  );
-}
-.campaign-hero__copy {
-  position: relative;
-  z-index: 2;
-  width: min(780px, 84vw);
-  padding: clamp(76px, 10vw, 145px) 0 90px clamp(22px, 6vw, 92px);
-}
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 20px;
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
-}
-.campaign-hero h1,
-.section-heading h2,
-.concept-section h2,
-.notes-section h2,
-.last-call h2 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.045em;
-  line-height: 0.82;
-}
-.campaign-hero h1 {
-  font-size: clamp(70px, 10.8vw, 172px);
-}
-.campaign-hero h1 span {
-  color: var(--coral);
-  -webkit-text-stroke: 2px var(--ink);
-  text-shadow: 5px 5px 0 var(--ink);
-}
-.campaign-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  margin-top: 44px;
-}
-.campaign-hero__actions p {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.5;
-}
-.pill-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 0 24px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  transition: 0.2s ease;
-}
-.pill-button:hover {
-  transform: rotate(-2deg) scale(1.03);
-}
-.pill-button--dark {
-  color: var(--cream);
-  background: var(--ink);
-  box-shadow: 4px 4px 0 var(--coral);
-}
-.pill-button--outline {
-  background: transparent;
-  box-shadow: 4px 4px 0 var(--ink);
-}
-.hero-sticker {
-  position: absolute;
-  z-index: 2;
-  right: clamp(25px, 5vw, 80px);
-  bottom: 60px;
-  width: clamp(124px, 13vw, 190px);
-  aspect-ratio: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: var(--pink);
-  border: 3px solid var(--ink);
-  border-radius: 48% 52% 42% 58% / 55% 45% 55% 45%;
-  box-shadow: 7px 7px 0 var(--ink);
-  transform: rotate(8deg);
-  text-align: center;
-}
-.hero-sticker span {
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-.hero-sticker strong {
-  font-family: var(--font-heading);
-  font-size: clamp(24px, 2.7vw, 42px);
-  line-height: 0.9;
-}
-.hero-scroll {
-  position: absolute;
-  z-index: 2;
-  left: clamp(22px, 6vw, 92px);
-  bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  text-decoration: none;
-}
-
-.ticker {
-  overflow: hidden;
-  padding: 13px 0;
-  background: var(--blue);
-  color: white;
-  border-bottom: 2px solid var(--ink);
-}
-.ticker__track {
-  width: max-content;
-  display: flex;
-  gap: 34px;
-  animation: ticker 24s linear infinite;
-  font-family: var(--font-heading);
-  font-size: 18px;
-  letter-spacing: 0.04em;
-}
 @keyframes ticker {
   to {
     transform: translateX(-50%);
@@ -741,19 +584,6 @@ main > div:not(.home-page) h1 {
 }
 
 @media (max-width: 900px) {
-  .campaign-hero {
-    min-height: 710px;
-  }
-  .campaign-hero__image {
-    object-position: 64% center;
-  }
-  .campaign-hero__wash {
-    background: linear-gradient(
-      90deg,
-      rgba(247, 230, 0, 0.78),
-      rgba(247, 230, 0, 0.12) 72%
-    );
-  }
   .concept-section {
     grid-template-columns: 1fr;
   }
@@ -774,44 +604,6 @@ main > div:not(.home-page) h1 {
   }
   .announcement span,
   .announcement span + * {
-    display: none;
-  }
-  .campaign-hero {
-    min-height: 680px;
-  }
-  .campaign-hero__image {
-    object-position: 61% 50%;
-  }
-  .campaign-hero__wash {
-    background: linear-gradient(
-      180deg,
-      rgba(247, 230, 0, 0.87) 0%,
-      rgba(247, 230, 0, 0.26) 60%,
-      transparent 100%
-    );
-  }
-  .campaign-hero__copy {
-    width: 100%;
-    padding: 55px 18px 0;
-  }
-  .campaign-hero h1 {
-    font-size: clamp(62px, 20vw, 92px);
-  }
-  .campaign-hero h1 span {
-    -webkit-text-stroke-width: 1px;
-    text-shadow: 3px 3px 0 var(--ink);
-  }
-  .campaign-hero__actions {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 18px;
-    margin-top: 28px;
-  }
-  .hero-sticker {
-    right: 22px;
-    bottom: 42px;
-  }
-  .hero-scroll {
     display: none;
   }
   .section-heading {
@@ -870,9 +662,6 @@ main > div:not(.home-page) h1 {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-  .ticker__track {
-    animation: none;
   }
   *,
   *::before,
