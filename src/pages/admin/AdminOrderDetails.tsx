@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { ArrowLeft, PackageCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, PackageCheck, Truck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
@@ -214,6 +214,21 @@ export default function AdminOrderDetails() {
           </CardHeader>
           <CardContent className="space-y-3">
             <MetadataRow label="Customer" value={order.email} />
+            {order.subtotal !== undefined ? (
+              <MetadataRow
+                label="Subtotal"
+                value={`$${order.subtotal.toFixed(2)}`}
+              />
+            ) : null}
+            {order.shipping !== undefined ? (
+              <MetadataRow
+                label="Shipping"
+                value={`$${order.shipping.toFixed(2)}`}
+              />
+            ) : null}
+            {order.tax !== undefined ? (
+              <MetadataRow label="Tax" value={`$${order.tax.toFixed(2)}`} />
+            ) : null}
             <MetadataRow label="Total" value={`$${order.total.toFixed(2)}`} />
             <MetadataRow
               label="Payment intent"
@@ -238,11 +253,58 @@ export default function AdminOrderDetails() {
               }
               mono
             />
-            {!order.printfulOrderId ? (
+            {!order.printfulOrderId && !order.fulfillmentError ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <PackageCheck className="size-4" aria-hidden /> Not submitted to
                 Printful yet
               </p>
+            ) : null}
+
+            {/* A paid order that will not be produced is the most urgent thing
+                this page can show, so it leads rather than sitting in a row. */}
+            {order.fulfillmentError ? (
+              <div className="flex gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                <AlertTriangle
+                  className="mt-0.5 size-4 shrink-0 text-destructive"
+                  aria-hidden
+                />
+                <div>
+                  <p className="font-medium text-destructive">
+                    Fulfillment failed
+                  </p>
+                  <p className="mt-1 break-words text-muted-foreground">
+                    {order.fulfillmentError}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {order.shipment?.trackingNumber ? (
+              <div className="space-y-2 rounded-lg border p-3 text-sm">
+                <p className="flex items-center gap-2 font-medium">
+                  <Truck className="size-4" aria-hidden />
+                  {order.shipment.carrier ?? "Shipped"}
+                </p>
+                {order.shipment.trackingUrl ? (
+                  <a
+                    href={order.shipment.trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block font-mono text-xs break-all underline underline-offset-4"
+                  >
+                    {order.shipment.trackingNumber}
+                  </a>
+                ) : (
+                  <p className="font-mono text-xs break-all">
+                    {order.shipment.trackingNumber}
+                  </p>
+                )}
+                {order.shipment.shippedAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    Shipped {new Date(order.shipment.shippedAt).toLocaleDateString()}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </CardContent>
         </Card>

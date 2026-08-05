@@ -441,10 +441,28 @@ export const getOrderDetail = query({
       _id: v.id("orders"),
       _creationTime: v.number(),
       email: v.string(),
+      // The charge breakdown. Optional because orders placed before it existed
+      // have no breakdown.
+      subtotal: v.optional(v.number()),
+      shipping: v.optional(v.number()),
+      tax: v.optional(v.number()),
       total: v.number(),
       status: v.string(),
       printfulOrderId: v.optional(v.number()),
+      fulfillmentError: v.optional(v.string()),
+      shipment: v.optional(
+        v.object({
+          carrier: v.optional(v.string()),
+          trackingNumber: v.optional(v.string()),
+          trackingUrl: v.optional(v.string()),
+          shippedAt: v.optional(v.number()),
+        }),
+      ),
+      stripeSessionId: v.optional(v.string()),
       stripePaymentIntentId: v.optional(v.string()),
+      confirmationEmailSentAt: v.optional(v.number()),
+      shipmentEmailSentAt: v.optional(v.number()),
+      fulfillmentAlertSentAt: v.optional(v.number()),
       shippingAddress: v.object({
         name: v.string(),
         address1: v.string(),
@@ -493,7 +511,10 @@ export const getOrderDetail = query({
       }),
     );
 
-    const { userId, ...safeOrder } = order;
+    // accessToken is deliberately dropped, not just omitted from the
+    // validator: it grants anyone holding it read access to the order, and the
+    // admin page has no use for it.
+    const { userId, accessToken, ...safeOrder } = order;
     return { ...safeOrder, items };
   },
 });
