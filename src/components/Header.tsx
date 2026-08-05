@@ -21,8 +21,23 @@ const NAV_LINKS = [
   { to: "/contact", label: "Say hey" },
 ];
 
+/** Shared pill treatment for the desktop nav links and the text links. */
+const HEADER_LINK =
+  "rounded-full px-[13px] py-[10px] text-[13px] font-extrabold tracking-[0.035em] uppercase no-underline";
+
+/** The Admin / Account links underline on hover rather than filling. */
+const HEADER_TEXT_LINK = "hover:underline hover:decoration-2";
+
+/** Cream pill with a hard offset shadow, shared by the cart and the burger. */
+const PILL =
+  "cursor-pointer border-2 border-ink bg-cream rounded-full shadow-[3px_3px_0_var(--ink)] hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_var(--ink)]";
+
 function navLinkClass({ isActive }: { isActive: boolean }) {
-  return cn("site-nav__link", isActive && "site-nav__link--active");
+  return cn(
+    HEADER_LINK,
+    "hover:bg-ink hover:text-yellow",
+    isActive && "bg-ink text-yellow",
+  );
 }
 
 export default function Header() {
@@ -33,16 +48,34 @@ export default function Header() {
   return (
     <>
       {/* <div className="announcement">FREE SHIPPING ON ORDERS OVER $60 <span>✦</span> LOOK GOOD, FEEL GOOD, SOUNDS GOOD</div> */}
-      <header className="site-header">
+      <header
+        className={cn(
+          "sticky top-0 z-50 grid items-center",
+          "h-[76px] phone-max:h-[66px]",
+          // Three columns centre the nav independently of the logo width; below
+          // 900px the nav is gone, so the third column would strand the actions.
+          "grid-cols-[1fr_auto_1fr] nav-max:grid-cols-[1fr_auto]",
+          "px-[clamp(18px,4vw,64px)] phone-max:px-[15px]",
+          // Was color-mix(in srgb, var(--yellow) 94%, transparent), which is
+          // just 94% alpha.
+          "border-b-2 border-ink bg-yellow/94 backdrop-blur-[12px]",
+        )}
+      >
         <Link
           to="/"
-          className="wordmark"
           aria-label="Sounds Good T-Shirts home"
+          className="w-max font-(family-name:--font-heading) text-[clamp(19px,2vw,27px)] leading-[0.8] tracking-[-0.025em] no-underline"
         >
-          SOUNDS<span>GOOD!</span>
+          SOUNDS
+          <span className="block origin-left rotate-[-3deg] text-coral">
+            GOOD!
+          </span>
         </Link>
 
-        <nav className="site-nav" aria-label="Main navigation">
+        <nav
+          className="flex items-center gap-1 nav-max:hidden"
+          aria-label="Main navigation"
+        >
           {NAV_LINKS.map((link) => (
             <NavLink key={link.to} to={link.to} className={navLinkClass}>
               {link.label}
@@ -50,15 +83,22 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="header-actions">
+        <div className="flex items-center justify-end gap-[5px]">
           {user?.isAdmin && (
-            <Link to="/admin" className="header-text-link">
+            <Link
+              to="/admin"
+              className={cn(
+                HEADER_LINK,
+                HEADER_TEXT_LINK,
+                "nav-max:hidden",
+              )}
+            >
               Admin
             </Link>
           )}
           <Link
             to={user ? "/my-account" : "/sign-in"}
-            className="header-text-link"
+            className={cn(HEADER_LINK, HEADER_TEXT_LINK, "nav-max:hidden")}
           >
             {user ? "Account" : "Sign in"}
           </Link>
@@ -67,12 +107,21 @@ export default function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="cart-link"
             aria-label={`Open cart, ${cartTotal.itemCount} item${cartTotal.itemCount === 1 ? "" : "s"}`}
+            className={cn(
+              PILL,
+              "inline-flex min-h-[42px] items-center gap-[7px]",
+              "pr-[6px] pl-[14px] phone-max:pl-[10px]",
+              "text-[13px] font-extrabold uppercase",
+            )}
           >
             <ShoppingBag size={20} strokeWidth={2.5} />
-            <span>Bag</span>
-            <b>{cartTotal.itemCount}</b>
+            {/* Label drops on narrow phones so the pill does not crowd the
+                wordmark; the count and icon still read as a cart. */}
+            <span className="phone-max:hidden">Bag</span>
+            <b className="grid h-[28px] min-w-[28px] place-items-center rounded-full bg-coral px-[6px] text-white">
+              {cartTotal.itemCount}
+            </b>
           </button>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
@@ -80,8 +129,12 @@ export default function Header() {
                   .header-text-link are hidden. */}
               <button
                 type="button"
-                className="mobile-menu"
                 aria-label="Open menu"
+                className={cn(
+                  PILL,
+                  "hidden size-[42px] place-items-center p-0 text-ink",
+                  "nav-max:grid",
+                )}
               >
                 <Menu size={20} strokeWidth={2.5} />
               </button>
