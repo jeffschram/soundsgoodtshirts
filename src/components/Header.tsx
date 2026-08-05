@@ -1,8 +1,18 @@
+import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu, ShoppingBag } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCart } from "@/context/CartContext";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -18,6 +28,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 export default function Header() {
   const { cartTotal, setCartOpen } = useCart();
   const user = useQuery(api.auth.loggedInUser);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
@@ -63,9 +74,73 @@ export default function Header() {
             <span>Bag</span>
             <b>{cartTotal.itemCount}</b>
           </button>
-          <button className="mobile-menu" aria-label="Show menu">
-            <Menu />
-          </button>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              {/* Only rendered below 900px, where .site-nav and
+                  .header-text-link are hidden. */}
+              <button
+                type="button"
+                className="mobile-menu"
+                aria-label="Open menu"
+              >
+                <Menu />
+              </button>
+            </SheetTrigger>
+
+            <SheetContent side="left" aria-describedby={undefined}>
+              <SheetHeader>
+                <SheetTitle className="text-2xl font-bold tracking-tight">
+                  MENU
+                </SheetTitle>
+              </SheetHeader>
+
+              <nav
+                className="flex flex-col gap-1 p-4"
+                aria-label="Mobile navigation"
+              >
+                {NAV_LINKS.map((link) => (
+                  <SheetClose key={link.to} asChild>
+                    <NavLink
+                      to={link.to}
+                      className={({ isActive }) =>
+                        cn(
+                          "rounded-md px-3 py-2 text-lg font-semibold tracking-tight transition-colors",
+                          isActive
+                            ? "bg-accent text-accent-foreground"
+                            : "hover:bg-accent/60",
+                        )
+                      }
+                    >
+                      {link.label}
+                    </NavLink>
+                  </SheetClose>
+                ))}
+
+                <Separator className="my-3" />
+
+                {/* These are header-text-link on desktop, also hidden below
+                    900px — so without them here a phone user cannot sign in. */}
+                {user?.isAdmin ? (
+                  <SheetClose asChild>
+                    <Link
+                      to="/admin"
+                      className="rounded-md px-3 py-2 text-base font-medium hover:bg-accent/60"
+                    >
+                      Admin
+                    </Link>
+                  </SheetClose>
+                ) : null}
+                <SheetClose asChild>
+                  <Link
+                    to={user ? "/my-account" : "/sign-in"}
+                    className="rounded-md px-3 py-2 text-base font-medium hover:bg-accent/60"
+                  >
+                    {user ? "Account" : "Sign in"}
+                  </Link>
+                </SheetClose>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
     </>

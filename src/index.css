@@ -815,7 +815,12 @@ main > div:not(.home-page) h1 {
     display: none;
   }
   .mobile-menu {
-    display: none;
+    /* Below 900px .site-nav and .header-text-link are hidden, so this is the
+       only route to navigation, sign-in and admin. It was display:none here
+       AND at base, which left mobile users with no menu at all. */
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
   }
   .campaign-hero {
     min-height: 710px;
