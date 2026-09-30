@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as cart from "../cart.js";
 import type * as cleanup from "../cleanup.js";
+import type * as collections from "../collections.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as orders from "../orders.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cart: typeof cart;
   cleanup: typeof cleanup;
+  collections: typeof collections;
   email: typeof email;
   http: typeof http;
   orders: typeof orders;

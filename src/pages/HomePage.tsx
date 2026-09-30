@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
+import CollectionHeading from "@/components/CollectionHeading";
 import ProductGrid from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -30,8 +31,24 @@ const NOTES = [
   ],
 ];
 
+const GRID_SKELETON = (
+  <div className="product-grid product-grid--loading">
+    {[0, 1, 2, 3].map((i) => (
+      <Skeleton key={i} className="aspect-square w-full rounded-none" />
+    ))}
+  </div>
+);
+
 export default function HomePage() {
-  const products = useQuery(api.products.list, {});
+  const sections = useQuery(api.collections.homepageSections, {});
+
+  // Only the fallback needs every product, so the fetch is skipped entirely
+  // while sections are loading and whenever there is at least one homepage
+  // collection to render.
+  const fallbackProducts = useQuery(
+    api.products.list,
+    sections === undefined || sections.length > 0 ? "skip" : {},
+  );
 
   return (
     <div className="home-page">
@@ -88,43 +105,78 @@ export default function HomePage() {
         </div>
       </div>
 
-      <section className="drop-section" id="new-drop">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Fresh from the brain</p>
-            <h2>
-              The spaghetti
-              <br />
-              <em>collection.</em>
-            </h2>
+      {/* The drop sections are whatever /admin/collections has flagged for the
+          homepage. `#new-drop` stays on the first of them, because the hero's
+          scroll link points at it. */}
+      {sections === undefined ? (
+        <section className="drop-section" id="new-drop">
+          <div className="section-heading">
+            <div>
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="mt-5 h-20 w-[min(560px,80vw)]" />
+            </div>
           </div>
-          <p className="section-heading__aside">
-            Two deeply important positions.
-            <br />
-            Pick a side. Wear it everywhere.
-          </p>
-        </div>
+          {GRID_SKELETON}
+        </section>
+      ) : sections.length > 0 ? (
+        sections.map((collection, index) => (
+          <section
+            className="drop-section"
+            id={index === 0 ? "new-drop" : undefined}
+            key={collection._id}
+          >
+            <CollectionHeading collection={collection} />
 
-        {products === undefined ? (
-          <div className="product-grid product-grid--loading">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="aspect-square w-full rounded-none" />
-            ))}
+            {collection.products.length > 0 ? (
+              <ProductGrid products={collection.products} />
+            ) : (
+              <p className="empty-state">
+                The shirts are backstage getting ready. Check back soon.
+              </p>
+            )}
+
+            <div className="center-action">
+              <Link
+                to={`/collection/${collection.slug}`}
+                className="pill-button pill-button--outline"
+              >
+                See the whole collection <ArrowUpRight size={18} />
+              </Link>
+            </div>
+          </section>
+        ))
+      ) : (
+        // No homepage collections configured: lead with every shirt rather
+        // than leaving a hole where the drop section was.
+        <section className="drop-section" id="new-drop">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Fresh from the brain</p>
+              <h2>
+                Every shirt
+                <br />
+                <em>we make.</em>
+              </h2>
+            </div>
           </div>
-        ) : products.length > 0 ? (
-          <ProductGrid products={products} />
-        ) : (
-          <p className="empty-state">
-            The shirts are backstage getting ready. Check back soon.
-          </p>
-        )}
 
-        <div className="center-action">
-          <Link to="/shop" className="pill-button pill-button--outline">
-            See every shirt <ArrowUpRight size={18} />
-          </Link>
-        </div>
-      </section>
+          {fallbackProducts === undefined ? (
+            GRID_SKELETON
+          ) : fallbackProducts.length > 0 ? (
+            <ProductGrid products={fallbackProducts} />
+          ) : (
+            <p className="empty-state">
+              The shirts are backstage getting ready. Check back soon.
+            </p>
+          )}
+
+          <div className="center-action">
+            <Link to="/shop" className="pill-button pill-button--outline">
+              See every shirt <ArrowUpRight size={18} />
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="manifesto-section">
         <p className="manifesto-kicker">Our philosophy</p>
