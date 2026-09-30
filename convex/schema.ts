@@ -43,6 +43,37 @@ const applicationTables = {
     .index("by_printful_id", ["printfulId"])
     .index("by_slug", ["slug"]),
 
+  // Curated groupings of products, plus the copy the homepage leads each
+  // section with.
+  //
+  // Membership is deliberately NOT a field on `products`: the Printful sync
+  // overwrites product documents wholesale on every run, so anything it does
+  // not know about has to live outside its reach. Instead a product belongs to
+  // a collection when one of its free-string `categories` normalizes to the
+  // collection's `slug` — see categorySlug() in convex/collections.ts. That
+  // reuses the category vocabulary the admin editor and shop filters already
+  // write, so adding a collection needs no product migration.
+  collections: defineTable({
+    // URL segment for /collection/:slug, and the category key membership is
+    // matched on. Slug-shaped and unique.
+    slug: v.string(),
+    name: v.string(),
+    // Homepage section copy. All optional: a collection with none of it set
+    // still renders, leading with `name`.
+    eyebrow: v.optional(v.string()),
+    // The big heading. Falls back to `name` when unset.
+    headingCopy: v.optional(v.string()),
+    // Second heading line, rendered in the serif italic accent style —
+    // "The spaghetti" / "collection."
+    headingAccent: v.optional(v.string()),
+    // Small italic note beside the heading. Newlines render as line breaks.
+    aside: v.optional(v.string()),
+    // Ascending sort key for homepage sections and the admin list.
+    order: v.number(),
+    showOnHomepage: v.boolean(),
+    active: v.boolean(),
+  }).index("by_slug", ["slug"]),
+
   orders: defineTable({
     userId: v.optional(v.id("users")),
     email: v.string(),

@@ -1,6 +1,13 @@
 import { Navigate, Outlet, Link, NavLink } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ArrowLeft, LayoutDashboard, Package, ShoppingBag, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Layers,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Users,
+} from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -8,6 +15,7 @@ import { cn } from "@/lib/utils";
 const ADMIN_LINKS = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/products", label: "Products", icon: Package, end: false },
+  { to: "/admin/collections", label: "Collections", icon: Layers, end: false },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag, end: false },
   { to: "/admin/users", label: "Users", icon: Users, end: false },
 ];

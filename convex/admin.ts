@@ -8,6 +8,7 @@ import {
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+import { categorySlug } from "./collections";
 
 const MAX_HARD_DELETE_ORDER_SCAN = 5_000;
 
@@ -420,6 +421,200 @@ export const reorderProductImages = mutation({
     }
 
     await ctx.db.patch(args.id, { customImages: args.storageIds });
+    return null;
+  },
+});
+
+// ---- Collections ----
+
+/**
+ * Collections group products for the homepage and /collection/:slug.
+ *
+ * Membership is not stored on the product — see the note in convex/schema.ts.
+ * A product joins a collection by carrying a category that normalizes to the
+ * collection's slug, which is why the slug is validated against exactly the
+ * shape categorySlug() produces.
+ */
+function normalizedCopy(value: string | undefined): string | undefined {
+  // Empty means "cleared": patching the key to undefined removes it, so a
+  // blanked field in the editor does not persist as an empty string.
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+async function assertUniqueCollectionSlug(
+  ctx: any,
+  slug: string,
+  exceptId?: string,
+) {
+  const existing = await ctx.db
+    .query("collections")
+    .withIndex("by_slug", (q: any) => q.eq("slug", slug))
+    .first();
+  if (existing && existing._id !== exceptId) {
+    throw new Error(`The slug “${slug}” is already used by another collection.`);
+  }
+}
+
+function validateCollectionInput(collection: {
+  name: string;
+  slug: string;
+  order: number;
+}) {
+  if (!collection.name.trim()) {
+    throw new Error("Collection name is required.");
+  }
+  if (!collection.slug) {
+    throw new Error("Collection slug is required.");
+  }
+  if (collection.slug !== categorySlug(collection.slug)) {
+    throw new Error(
+      "Slug must contain lowercase letters, numbers, and single hyphens only.",
+    );
+  }
+  if (!Number.isFinite(collection.order)) {
+    throw new Error("Collection order must be a number.");
+  }
+}
+
+/**
+ * Every collection, with a live count of the products each one currently
+ * matches — the only way to see from /admin whether a slug lines up with the
+ * category strings on real products.
+ */
+export const listAllCollections = query({
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const collections = await ctx.db.query("collections").collect();
+    const products = await ctx.db.query("products").collect();
+
+    return collections
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+      .map((collection) => ({
+        ...collection,
+        productCount: products.filter(
+          (product) =>
+            product.active &&
+            product.categories.some(
+              (category) => categorySlug(category) === collection.slug,
+            ),
+        ).length,
+      }));
+  },
+});
+
+export const createCollection = mutation({
+  args: {
+    slug: v.string(),
+    name: v.string(),
+    eyebrow: v.optional(v.string()),
+    headingCopy: v.optional(v.string()),
+    headingAccent: v.optional(v.string()),
+    aside: v.optional(v.string()),
+    order: v.optional(v.number()),
+    showOnHomepage: v.optional(v.boolean()),
+    active: v.optional(v.boolean()),
+  },
+  returns: v.id("collections"),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const existing = await ctx.db.query("collections").collect();
+    const collection = {
+      slug: categorySlug(args.slug),
+      name: args.name.trim(),
+      eyebrow: normalizedCopy(args.eyebrow),
+      headingCopy: normalizedCopy(args.headingCopy),
+      headingAccent: normalizedCopy(args.headingAccent),
+      aside: normalizedCopy(args.aside),
+      // Default to the end of the list so a new collection never silently
+      // jumps ahead of the existing homepage order.
+      order:
+        args.order ??
+        existing.reduce((largest, other) => Math.max(largest, other.order), 0) +
+          1,
+      showOnHomepage: args.showOnHomepage ?? false,
+      active: args.active ?? true,
+    };
+
+    validateCollectionInput(collection);
+    await assertUniqueCollectionSlug(ctx, collection.slug);
+    return await ctx.db.insert("collections", collection);
+  },
+});
+
+export const updateCollection = mutation({
+  args: {
+    id: v.id("collections"),
+    slug: v.optional(v.string()),
+    name: v.optional(v.string()),
+    eyebrow: v.optional(v.string()),
+    headingCopy: v.optional(v.string()),
+    headingAccent: v.optional(v.string()),
+    aside: v.optional(v.string()),
+    order: v.optional(v.number()),
+    showOnHomepage: v.optional(v.boolean()),
+    active: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const existing = await ctx.db.get(args.id);
+    if (!existing) {
+      throw new Error("Collection not found.");
+    }
+
+    const { id, ...updates } = args;
+    const normalizedUpdates = {
+      ...(updates.slug !== undefined
+        ? { slug: categorySlug(updates.slug) }
+        : {}),
+      ...(updates.name !== undefined ? { name: updates.name.trim() } : {}),
+      // Present-but-empty clears the field; absent leaves it alone.
+      ...(updates.eyebrow !== undefined
+        ? { eyebrow: normalizedCopy(updates.eyebrow) }
+        : {}),
+      ...(updates.headingCopy !== undefined
+        ? { headingCopy: normalizedCopy(updates.headingCopy) }
+        : {}),
+      ...(updates.headingAccent !== undefined
+        ? { headingAccent: normalizedCopy(updates.headingAccent) }
+        : {}),
+      ...(updates.aside !== undefined
+        ? { aside: normalizedCopy(updates.aside) }
+        : {}),
+      ...(updates.order !== undefined ? { order: updates.order } : {}),
+      ...(updates.showOnHomepage !== undefined
+        ? { showOnHomepage: updates.showOnHomepage }
+        : {}),
+      ...(updates.active !== undefined ? { active: updates.active } : {}),
+    };
+
+    validateCollectionInput({ ...existing, ...normalizedUpdates });
+    if (normalizedUpdates.slug !== undefined) {
+      await assertUniqueCollectionSlug(ctx, normalizedUpdates.slug, id);
+    }
+
+    await ctx.db.patch(id, normalizedUpdates);
+    return null;
+  },
+});
+
+/**
+ * Collections are pure presentation — nothing references them by id, and
+ * membership lives on the product's own categories — so deletion is safe and
+ * takes no product with it.
+ */
+export const deleteCollection = mutation({
+  args: { id: v.id("collections") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const collection = await ctx.db.get(args.id);
+    if (!collection) {
+      throw new Error("Collection not found.");
+    }
+    await ctx.db.delete(args.id);
     return null;
   },
 });
