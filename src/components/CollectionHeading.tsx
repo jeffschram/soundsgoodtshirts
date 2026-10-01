@@ -32,7 +32,10 @@ export default function CollectionHeading({
 }) {
   return (
     <div className="section-heading">
-      <div>
+      {/* The eyebrow + h2 are one flex child so the aside can sit beside them.
+          Classed, not bare, because the single-product layout gives this block
+          a full-line flex-basis to push the aside underneath it instead. */}
+      <div className="section-heading__copy">
         {collection.eyebrow ? (
           <p className="eyebrow">{collection.eyebrow}</p>
         ) : null}

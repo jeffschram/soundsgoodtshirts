@@ -312,6 +312,55 @@
   border-top: 2px solid var(--ink);
   border-left: 2px solid var(--ink);
 }
+
+/* Single-product collections: card on the left, copy on the right.
+   A lone card in the two-column grid fills the left cell and leaves an empty
+   half-width cell behind, with the grid's border-top dangling across it. So
+   the grid drops to one column — closing the card's border box — and the
+   collection copy moves into the space that frees up. Stacks back to
+   copy-above-card at the shared 900px breakpoint. */
+.product-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.collection-showcase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  /* Owns the spacing between copy and card at every width, which is why the
+     heading's own margin-bottom is zeroed out below. */
+  gap: clamp(32px, 4vw, 72px);
+}
+/* The heading comes first in the DOM — it introduces the product, and that is
+   the order the stacked layout wants — so the wide layout places the card
+   back into the first column. */
+.collection-showcase > .product-grid {
+  grid-column: 1;
+  grid-row: 1;
+}
+.collection-showcase > .section-heading {
+  grid-column: 2;
+  grid-row: 1;
+  margin-bottom: 0;
+  /* Half the width is not enough for the heading and the aside side by side,
+     so the aside wraps onto its own line under it and the flex gap becomes
+     the vertical gap. */
+  flex-wrap: wrap;
+}
+.collection-showcase .section-heading__copy {
+  flex: 1 0 100%;
+}
+/* The shared clamp is sized for the full viewport width; in a half-width
+   column it shatters a long heading ("SOUNDS GOOD" / "doesn't it?") into a
+   stack of fragments. overflow-wrap is the guard for a single long word, which
+   Impact at this size would otherwise run past the column. */
+.collection-showcase > .section-heading h2 {
+  font-size: clamp(46px, 5.6vw, 104px);
+  overflow-wrap: break-word;
+}
+.collection-showcase .section-heading__aside {
+  margin: 0;
+}
+
 .product-card {
   min-width: 0;
   color: var(--ink);
@@ -649,6 +698,28 @@ main > div:not(.home-page) h1 {
   .notes-list article {
     grid-template-columns: 45px 130px 1fr;
   }
+  /* Single-product collections stack: copy above, card below, in source order,
+     which is the same shape every other collection has here. The heading goes
+     back to the shared .section-heading treatment — restated rather than
+     inherited, because the scoped rules above outrank it. */
+  .collection-showcase {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 54px;
+  }
+  .collection-showcase > .product-grid,
+  .collection-showcase > .section-heading {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .collection-showcase > .section-heading {
+    flex-wrap: nowrap;
+  }
+  .collection-showcase .section-heading__copy {
+    flex: 0 1 auto;
+  }
+  .collection-showcase > .section-heading h2 {
+    font-size: clamp(62px, 8vw, 128px);
+  }
 }
 
 @media (max-width: 640px) {
@@ -704,6 +775,14 @@ main > div:not(.home-page) h1 {
   }
   .section-heading h2,
   .notes-section h2 {
+    font-size: 60px;
+  }
+  /* The same two values the shared .section-heading rules take here, for the
+     same reason the 900px block restates them. */
+  .collection-showcase {
+    gap: 35px;
+  }
+  .collection-showcase > .section-heading h2 {
     font-size: 60px;
   }
   .product-grid {

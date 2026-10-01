@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import CollectionHeading from "@/components/CollectionHeading";
+import CollectionShowcase from "@/components/CollectionShowcase";
 import ProductGrid from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -118,15 +118,10 @@ export default function HomePage() {
             id={index === 0 ? "new-drop" : undefined}
             key={collection._id}
           >
-            <CollectionHeading collection={collection} />
-
-            {collection.products.length > 0 ? (
-              <ProductGrid products={collection.products} />
-            ) : (
-              <p className="empty-state">
-                The shirts are backstage getting ready. Check back soon.
-              </p>
-            )}
+            <CollectionShowcase
+              collection={collection}
+              emptyMessage="The shirts are backstage getting ready. Check back soon."
+            />
 
             <div className="center-action">
               <Link
