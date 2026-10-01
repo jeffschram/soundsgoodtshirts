@@ -1,2 +1,18 @@
+# pnpm blocks dependency build scripts by default, so esbuild's postinstall --
+# which resolves its platform binary -- has to be allowed explicitly. Without
+# this, every install ends in ERR_PNPM_IGNORED_BUILDS.
+#
+# Both spellings are declared on purpose, because the right one depends on which
+# pnpm runs the install and Vercel's version is not pinned here:
+#   - pnpm 10.26+ / 11 removed `onlyBuiltDependencies` and replaced it with the
+#     `allowBuilds` map. The old key is ignored *silently* -- no warning, just a
+#     failing install.
+#   - pnpm 10 before 10.26 only understands `onlyBuiltDependencies`.
+# Each version ignores the key it does not know, so keeping both is safe and
+# makes the install behave the same locally and on Vercel.
+# Collapse this to `allowBuilds` alone once a pnpm version is pinned via
+# package.json "packageManager".
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild
