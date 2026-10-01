@@ -154,7 +154,6 @@
 }
 .campaign-hero h1,
 .section-heading h2,
-.concept-section h2,
 .notes-section h2,
 .last-call h2 {
   margin: 0;
@@ -288,7 +287,6 @@
   margin-bottom: 54px;
 }
 .section-heading h2,
-.concept-section h2,
 .notes-section h2 {
   font-size: clamp(62px, 8vw, 128px);
 }
@@ -452,115 +450,6 @@
   font-family: "Comic Sans MS", cursive;
   font-size: 25px;
   transform: rotate(-10deg);
-}
-
-.concept-section {
-  display: grid;
-  grid-template-columns: 0.7fr 1.3fr;
-  gap: clamp(38px, 7vw, 110px);
-  padding: clamp(80px, 10vw, 150px) clamp(20px, 5vw, 80px);
-}
-.concept-section__intro {
-  position: sticky;
-  top: 130px;
-  align-self: start;
-}
-.concept-section h2 {
-  font-size: clamp(61px, 7vw, 112px);
-}
-.concept-section__intro > p:last-child {
-  max-width: 380px;
-  margin: 30px 0 0;
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-style: italic;
-  line-height: 1.35;
-}
-.concept-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-.concept-card {
-  position: relative;
-  min-height: 430px;
-  overflow: hidden;
-  border: 2px solid var(--ink);
-}
-.concept-card--coral {
-  background: var(--coral);
-}
-.concept-card--blue {
-  background: var(--blue);
-}
-.concept-card--pink {
-  background: var(--pink);
-}
-.concept-card--yellow {
-  background: var(--yellow);
-}
-.concept-card__tag {
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  left: 14px;
-  padding: 7px;
-  background: var(--cream);
-  border: 2px solid var(--ink);
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-.concept-tee {
-  position: absolute;
-  left: 50%;
-  top: 55%;
-  width: 57%;
-  aspect-ratio: 0.82;
-  display: grid;
-  place-items: center;
-  padding-top: 8%;
-  background: var(--ink);
-  color: white;
-  filter: drop-shadow(12px 13px 0 rgba(17, 17, 15, 0.26));
-  clip-path: polygon(
-    25% 6%,
-    39% 0,
-    61% 0,
-    75% 6%,
-    100% 26%,
-    86% 44%,
-    76% 36%,
-    76% 100%,
-    24% 100%,
-    24% 36%,
-    14% 44%,
-    0 26%
-  );
-}
-.concept-tee--left {
-  transform: translate(-50%, -50%) rotate(-7deg);
-}
-.concept-tee--right {
-  transform: translate(-50%, -50%) rotate(6deg);
-}
-.concept-tee span {
-  font-size: clamp(12px, 1.45vw, 22px);
-  font-weight: 800;
-  line-height: 0.94;
-  letter-spacing: -0.03em;
-  text-align: center;
-}
-.concept-card:hover .concept-tee {
-  animation: wiggle 0.45s ease;
-}
-@keyframes wiggle {
-  33% {
-    margin-left: -6px;
-  }
-  66% {
-    margin-left: 6px;
-  }
 }
 
 .notes-section {
@@ -754,12 +643,6 @@ main > div:not(.home-page) h1 {
       rgba(247, 230, 0, 0.12) 72%
     );
   }
-  .concept-section {
-    grid-template-columns: 1fr;
-  }
-  .concept-section__intro {
-    position: static;
-  }
   .notes-section {
     grid-template-columns: 1fr;
   }
@@ -820,7 +703,6 @@ main > div:not(.home-page) h1 {
     margin-bottom: 35px;
   }
   .section-heading h2,
-  .concept-section h2,
   .notes-section h2 {
     font-size: 60px;
   }
@@ -832,12 +714,6 @@ main > div:not(.home-page) h1 {
   }
   .product-card__details {
     min-height: 104px;
-  }
-  .concept-grid {
-    grid-template-columns: 1fr;
-  }
-  .concept-card {
-    min-height: 390px;
   }
   .notes-list article {
     grid-template-columns: 34px 1fr;

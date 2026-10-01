@@ -6,13 +6,6 @@ import CollectionHeading from "@/components/CollectionHeading";
 import ProductGrid from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const CONCEPTS = [
-  { lineOne: "VERY", lineTwo: "AVAILABLE", color: "coral", tilt: "left" },
-  { lineOne: "I SAW", lineTwo: "A DOG", color: "blue", tilt: "right" },
-  { lineOne: "NO THANK", lineTwo: "YOU", color: "pink", tilt: "left" },
-  { lineOne: "FINE,", lineTwo: "THANKS", color: "yellow", tilt: "right" },
-];
-
 const NOTES = [
   [
     "01",
@@ -186,40 +179,6 @@ export default function HomePage() {
         </blockquote>
         <div className="scribble" aria-hidden="true">
           ✓ yep
-        </div>
-      </section>
-
-      <section className="concept-section">
-        <div className="concept-section__intro">
-          <p className="eyebrow">On the drawing board</p>
-          <h2>
-            More shirts.
-            <br />
-            Less restraint.
-          </h2>
-          <p>
-            Future tiny statements currently being overthought in the studio.
-          </p>
-        </div>
-        <div className="concept-grid">
-          {CONCEPTS.map((concept) => (
-            <article
-              className={`concept-card concept-card--${concept.color}`}
-              key={concept.lineOne}
-            >
-              <span className="concept-card__tag">CONCEPT / IN PROGRESS</span>
-              <div
-                className={`concept-tee concept-tee--${concept.tilt}`}
-                aria-label={`${concept.lineOne} ${concept.lineTwo} T-shirt concept`}
-              >
-                <span>
-                  {concept.lineOne}
-                  <br />
-                  {concept.lineTwo}
-                </span>
-              </div>
-            </article>
-          ))}
         </div>
       </section>
 
