@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import CollectionShowcase from "@/components/CollectionShowcase";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import ProductGrid from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -32,7 +33,47 @@ const GRID_SKELETON = (
   </div>
 );
 
-export default function HomePage() {
+/**
+ * What the homepage shows when the drop sections cannot be fetched at all.
+ *
+ * Matches the shape of a real drop section so the page keeps its rhythm — the
+ * manifesto below it does not suddenly collide with the ticker above.
+ */
+const DROP_SECTIONS_FALLBACK = (
+  <section className="drop-section" id="new-drop">
+    <div className="section-heading">
+      <div>
+        <p className="eyebrow">Back in a minute</p>
+        <h2>
+          The shirts are
+          <br />
+          <em>being shy.</em>
+        </h2>
+      </div>
+    </div>
+    <p className="empty-state">
+      This bit is having a moment. Everything else still works — try the shop.
+    </p>
+    <div className="center-action">
+      <Link to="/shop" className="pill-button pill-button--outline">
+        Shop all shirts <ArrowUpRight size={18} />
+      </Link>
+    </div>
+  </section>
+);
+
+/**
+ * The drop sections, split into their own component **so the queries live
+ * inside the ErrorBoundary below**.
+ *
+ * This is not cosmetic. A `useQuery` throws during the render of whichever
+ * component calls it, and a boundary only catches throws from its descendants.
+ * While these calls sat in `HomePage`, no boundary in `HomePage`'s own JSX could
+ * ever have caught them — `HomePage` would throw before rendering any of it,
+ * taking the hero, ticker, manifesto and notes down too, none of which need the
+ * backend. That is exactly the 2026-09-30 outage. Keep the queries here.
+ */
+function DropSections() {
   const sections = useQuery(api.collections.homepageSections, {});
 
   // Only the fallback needs every product, so the fetch is skipped entirely
@@ -44,60 +85,7 @@ export default function HomePage() {
   );
 
   return (
-    <div className="home-page">
-      <section className="campaign-hero">
-        <img
-          src="/sounds-good-campaign.png"
-          alt="Friends wearing black T-shirts against a bright yellow backdrop"
-          className="campaign-hero__image"
-        />
-        <div className="campaign-hero__wash" />
-        <div className="campaign-hero__copy">
-          <p className="eyebrow">
-            <Sparkles size={15} /> This is soundsgoodtshirts.com{" "}
-            <Sparkles size={15} />
-          </p>
-          <h1>
-            You can buy
-            <br />
-            <span>t-shirts here.</span>
-          </h1>
-          <div className="campaign-hero__actions">
-            <Link to="/shop" className="pill-button pill-button--dark">
-              Shop the shirts <ArrowUpRight size={18} />
-            </Link>
-            <p>
-              Very soft. Extremely specific.
-              <br />
-              Zero explaining required.
-            </p>
-          </div>
-        </div>
-        <div className="hero-sticker" aria-hidden="true">
-          <span>YEAH,</span>
-          <strong>SOUNDS</strong>
-          <strong>GOOD!</strong>
-        </div>
-        <a
-          href="#new-drop"
-          className="hero-scroll"
-          aria-label="Scroll to the new drop"
-        >
-          Scroll for the good stuff <ArrowDownRight size={20} />
-        </a>
-      </section>
-
-      <div className="ticker" aria-label="Store highlights">
-        <div className="ticker__track">
-          <span>SMALL WORDS, BIG FEELINGS ✦</span>
-          <span>SOUNDS GOOD ✦</span>
-          <span>SIMPLE T-SHIRTS FROM SIMPLE PEOPLE ✦</span>
-          <span>SMALL WORDS, BIG FEELINGS ✦</span>
-          <span>SOUNDS GOOD ✦</span>
-          <span>SIMPLE T-SHIRTS FROM SIMPLE PEOPLE ✦</span>
-        </div>
-      </div>
-
+    <>
       {/* The drop sections are whatever /admin/collections has flagged for the
           homepage. `#new-drop` stays on the first of them, because the hero's
           scroll link points at it. */}
@@ -171,6 +159,76 @@ export default function HomePage() {
           </div>
         </section>
       )}
+    </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <div className="home-page">
+      <section className="campaign-hero">
+        <img
+          src="/sounds-good-campaign.png"
+          alt="Friends wearing black T-shirts against a bright yellow backdrop"
+          className="campaign-hero__image"
+        />
+        <div className="campaign-hero__wash" />
+        <div className="campaign-hero__copy">
+          <p className="eyebrow">
+            <Sparkles size={15} /> This is soundsgoodtshirts.com{" "}
+            <Sparkles size={15} />
+          </p>
+          <h1>
+            You can buy
+            <br />
+            <span>t-shirts here.</span>
+          </h1>
+          <div className="campaign-hero__actions">
+            <Link to="/shop" className="pill-button pill-button--dark">
+              Shop the shirts <ArrowUpRight size={18} />
+            </Link>
+            <p>
+              Very soft. Extremely specific.
+              <br />
+              Zero explaining required.
+            </p>
+          </div>
+        </div>
+        <div className="hero-sticker" aria-hidden="true">
+          <span>YEAH,</span>
+          <strong>SOUNDS</strong>
+          <strong>GOOD!</strong>
+        </div>
+        <a
+          href="#new-drop"
+          className="hero-scroll"
+          aria-label="Scroll to the new drop"
+        >
+          Scroll for the good stuff <ArrowDownRight size={20} />
+        </a>
+      </section>
+
+      <div className="ticker" aria-label="Store highlights">
+        <div className="ticker__track">
+          <span>SMALL WORDS, BIG FEELINGS ✦</span>
+          <span>SOUNDS GOOD ✦</span>
+          <span>SIMPLE T-SHIRTS FROM SIMPLE PEOPLE ✦</span>
+          <span>SMALL WORDS, BIG FEELINGS ✦</span>
+          <span>SOUNDS GOOD ✦</span>
+          <span>SIMPLE T-SHIRTS FROM SIMPLE PEOPLE ✦</span>
+        </div>
+      </div>
+
+      {/* Everything above and below this boundary is static copy that never
+          touches Convex. Scoping the boundary to the drop sections is what
+          turns a backend failure into one missing section instead of a blank
+          store. */}
+      <ErrorBoundary
+        label="homepage drop sections"
+        fallback={DROP_SECTIONS_FALLBACK}
+      >
+        <DropSections />
+      </ErrorBoundary>
 
       <section className="manifesto-section">
         <p className="manifesto-kicker">Our philosophy</p>
