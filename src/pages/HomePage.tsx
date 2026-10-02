@@ -123,14 +123,20 @@ export default function HomePage() {
               emptyMessage="The shirts are backstage getting ready. Check back soon."
             />
 
-            <div className="center-action">
-              <Link
-                to={`/collection/${collection.slug}`}
-                className="pill-button pill-button--outline"
-              >
-                See the whole collection <ArrowUpRight size={18} />
-              </Link>
-            </div>
+            {/* "See the whole collection" only earns its place when there is
+                more of the collection to see. With one product the link lands
+                on a page showing that same single card, and with none it lands
+                on an empty one. */}
+            {collection.products.length > 1 ? (
+              <div className="center-action">
+                <Link
+                  to={`/collection/${collection.slug}`}
+                  className="pill-button pill-button--outline"
+                >
+                  See the whole collection <ArrowUpRight size={18} />
+                </Link>
+              </div>
+            ) : null}
           </section>
         ))
       ) : (

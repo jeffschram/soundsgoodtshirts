@@ -17,8 +17,8 @@ type CollectionWithProducts = Doc<"collections"> & {
  * never disagree about how a collection is laid out. The interesting case is a
  * collection with exactly ONE product: the product grid is two fixed columns,
  * so a lone card fills the left cell and leaves half the viewport empty with
- * the grid's top border running across the void. Those sections put the card
- * beside the copy instead — see `.collection-showcase` in src/index.css, which
+ * the grid's top border running across the void. Those sections put the copy
+ * beside the card instead — see `.collection-showcase` in src/index.css, which
  * stacks it back to copy-above-card at the shared 900px breakpoint.
  */
 export default function CollectionShowcase({
@@ -39,9 +39,10 @@ export default function CollectionShowcase({
     );
   }
 
-  // The heading stays ahead of the grid in the DOM in both branches, so it
-  // introduces the product for screen readers and for the stacked layout. Only
-  // the wide single-product layout swaps the two visually, via grid placement.
+  // The heading stays ahead of the grid in the DOM in both branches: it
+  // introduces the product, and it is also where it sits on the page — copy on
+  // the left, card on the right — so reading order and visual order agree and
+  // the columns need no explicit grid placement.
   if (products.length === 1) {
     return (
       <div className="collection-showcase">

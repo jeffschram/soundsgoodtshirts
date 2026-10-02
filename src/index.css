@@ -313,7 +313,7 @@
   border-left: 2px solid var(--ink);
 }
 
-/* Single-product collections: card on the left, copy on the right.
+/* Single-product collections: copy on the left, card on the right.
    A lone card in the two-column grid fills the left cell and leaves an empty
    half-width cell behind, with the grid's border-top dangling across it. So
    the grid drops to one column — closing the card's border box — and the
@@ -330,16 +330,10 @@
      heading's own margin-bottom is zeroed out below. */
   gap: clamp(32px, 4vw, 72px);
 }
-/* The heading comes first in the DOM — it introduces the product, and that is
-   the order the stacked layout wants — so the wide layout places the card
-   back into the first column. */
-.collection-showcase > .product-grid {
-  grid-column: 1;
-  grid-row: 1;
-}
+/* The heading comes first in the DOM and first on the page, so both children
+   fall into place in source order and need no explicit grid placement. Visual
+   order matches reading order at every width. */
 .collection-showcase > .section-heading {
-  grid-column: 2;
-  grid-row: 1;
   margin-bottom: 0;
   /* Half the width is not enough for the heading and the aside side by side,
      so the aside wraps onto its own line under it and the flex gap becomes
@@ -705,11 +699,6 @@ main > div:not(.home-page) h1 {
   .collection-showcase {
     grid-template-columns: minmax(0, 1fr);
     gap: 54px;
-  }
-  .collection-showcase > .product-grid,
-  .collection-showcase > .section-heading {
-    grid-column: auto;
-    grid-row: auto;
   }
   .collection-showcase > .section-heading {
     flex-wrap: nowrap;
