@@ -2,8 +2,7 @@ import { useQuery } from "convex/react";
 import { ArrowUpRight } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import CollectionHeading from "@/components/CollectionHeading";
-import ProductGrid from "@/components/ProductGrid";
+import CollectionShowcase from "@/components/CollectionShowcase";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CollectionPage() {
@@ -59,15 +58,10 @@ export default function CollectionPage() {
 
   return (
     <section className="drop-section">
-      <CollectionHeading collection={collection} />
-
-      {collection.products.length > 0 ? (
-        <ProductGrid products={collection.products} />
-      ) : (
-        <p className="empty-state">
-          Nothing in this collection yet. Check back soon.
-        </p>
-      )}
+      <CollectionShowcase
+        collection={collection}
+        emptyMessage="Nothing in this collection yet. Check back soon."
+      />
 
       <div className="center-action">
         <Link to="/shop" className="pill-button pill-button--outline">

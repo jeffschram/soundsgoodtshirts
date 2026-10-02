@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import CollectionHeading from "@/components/CollectionHeading";
+import CollectionShowcase from "@/components/CollectionShowcase";
 import ProductGrid from "@/components/ProductGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -118,24 +118,25 @@ export default function HomePage() {
             id={index === 0 ? "new-drop" : undefined}
             key={collection._id}
           >
-            <CollectionHeading collection={collection} />
+            <CollectionShowcase
+              collection={collection}
+              emptyMessage="The shirts are backstage getting ready. Check back soon."
+            />
 
-            {collection.products.length > 0 ? (
-              <ProductGrid products={collection.products} />
-            ) : (
-              <p className="empty-state">
-                The shirts are backstage getting ready. Check back soon.
-              </p>
-            )}
-
-            <div className="center-action">
-              <Link
-                to={`/collection/${collection.slug}`}
-                className="pill-button pill-button--outline"
-              >
-                See the whole collection <ArrowUpRight size={18} />
-              </Link>
-            </div>
+            {/* "See the whole collection" only earns its place when there is
+                more of the collection to see. With one product the link lands
+                on a page showing that same single card, and with none it lands
+                on an empty one. */}
+            {collection.products.length > 1 ? (
+              <div className="center-action">
+                <Link
+                  to={`/collection/${collection.slug}`}
+                  className="pill-button pill-button--outline"
+                >
+                  See the whole collection <ArrowUpRight size={18} />
+                </Link>
+              </div>
+            ) : null}
           </section>
         ))
       ) : (

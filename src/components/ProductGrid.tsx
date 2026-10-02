@@ -4,13 +4,23 @@ import { Doc } from "../../convex/_generated/dataModel";
 
 interface ProductGridProps {
   products: Doc<"products">[];
+  /**
+   * Collapse the grid to a single column.
+   *
+   * The default grid is two columns with a border-top/left on the container
+   * and a border-right/bottom on each card, so a lone card leaves an empty
+   * half-width cell with the top border dangling across it. One column closes
+   * the box around the card. Set by CollectionShowcase, which moves the
+   * collection copy into the space that frees up.
+   */
+  single?: boolean;
 }
 
-export default function ProductGrid({ products }: ProductGridProps) {
+export default function ProductGrid({ products, single = false }: ProductGridProps) {
   if (products.length === 0) return <p className="empty-state">No products found.</p>;
 
   return (
-    <div className="product-grid">
+    <div className={single ? "product-grid product-grid--single" : "product-grid"}>
       {products.map((product, index) => (
         <Link key={product._id} to={`/product/${product.slug}`} className={`product-card product-card--${index % 4}`}>
           <div className="product-card__media">

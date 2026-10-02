@@ -25,3 +25,7 @@ dist-ssr
 
 # Ignored for the template, you probably want to remove it:
 package-lock.json
+
+# Agent task artifacts. The runner uploads this directory after a run, so the
+# deliverables are kept out of the repo rather than committed into it.
+.skippy/outputs
