@@ -61,6 +61,72 @@ Check out the [Convex docs](https://docs.convex.dev/) for more information on ho
 * Check out the [Hosting and Deployment](https://docs.convex.dev/production/) docs for how to deploy your app
 * Read the [Best Practices](https://docs.convex.dev/understanding/best-practices/) guide for tips on how to improve you app further
 
+### The frontend and the backend deploy together
+
+**Vercel builds the backend too. Do not bypass this.**
+
+`package.json` defines:
+
+```
+"vercel-build": "npx convex deploy --cmd 'npm run build'"
+```
+
+Vercel runs `vercel-build` in preference to `build` when it exists, so this is
+the command that actually ships the site. It is version-controlled on purpose —
+there is nothing to click in the Vercel dashboard, and nobody can forget it.
+
+The ordering is the whole point:
+
+1. `convex deploy` pushes `convex/` (functions, schema, indexes, crons) to the
+   target Convex deployment and waits for schema validation to pass.
+2. Only then does it run `--cmd`, with `VITE_CONVEX_URL` injected for the
+   deployment it just pushed to.
+
+So the JS bundle is always built against a backend that already has the
+functions that bundle calls. Splitting these two steps is what took the store
+down on 2026-09-30: a frontend referencing `collections:homepageSections`
+shipped to a production Convex deployment that had never received
+`convex/collections.ts`, every homepage query threw, and with no ErrorBoundary
+the whole React tree unmounted into a white screen.
+
+If `convex deploy` fails — bad schema, missing index, failed validation — the
+build fails and Vercel ships nothing. A failed deploy is the correct outcome;
+the previous good deployment stays live.
+
+### Required Vercel environment variable
+
+`CONVEX_DEPLOY_KEY` must be set in the Vercel project's environment variables.
+Generate it in the Convex dashboard (Deployment → Settings → Deploy key). Without
+it `convex deploy` cannot authenticate and **the build will fail**, which now
+means no deploy at all rather than a half-deploy.
+
+A copy in local `.env.local` does nothing for Vercel; the two are unrelated.
+
+### What preview / branch deploys do
+
+`convex deploy` picks its target from the *type* of key in `CONVEX_DEPLOY_KEY`,
+not from the git branch:
+
+| Key type in `CONVEX_DEPLOY_KEY` | What every Vercel build deploys to |
+| --- | --- |
+| Production deploy key (`prod:…`) | The production deployment — **including preview branch builds** |
+| Preview deploy key (`preview:…`) | A per-branch preview deployment |
+
+That first row is a real footgun: with only a production key configured at the
+project level, opening a PR would push that branch's schema and functions
+straight to production. Two ways to avoid it, both fine:
+
+* **Scope the variable.** In Vercel, set `CONVEX_DEPLOY_KEY` for the Production
+  environment only, and set a separate preview deploy key for the Preview
+  environment. Add `--preview-create $VERCEL_GIT_COMMIT_REF` to the deploy
+  command for previews so each branch gets its own named deployment.
+* **Don't deploy Convex on previews.** Leave `CONVEX_DEPLOY_KEY` unset for the
+  Preview environment and accept that preview builds fail fast rather than
+  silently deploying to prod.
+
+Either is safe. What is not safe is a single production key applied to all
+environments.
+
 ## Store policies
 
 Customer-facing policy pages live in `src/pages` and are routed in `src/App.tsx`:
